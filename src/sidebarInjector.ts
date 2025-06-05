@@ -18,6 +18,38 @@ function injectSidebar() {
 	// Add the iframe to the page
 	document.body.appendChild(iframe);
 
+	// Store the current URL to detect changes
+	let lastUrl = window.location.href;
+
+	// Create a URL observer to detect AJAX navigation
+	const urlObserver = new MutationObserver(() => {
+		// Check if URL has changed
+		const currentUrl = window.location.href;
+		if (currentUrl !== lastUrl) {
+			console.log("URL changed from", lastUrl, "to", currentUrl);
+			lastUrl = currentUrl;
+
+			// Wait a moment for the page content to update
+			setTimeout(() => {
+				// Extract and send job info when URL changes
+				if (sidebarOpen) {
+					extractJobInfo().then((jobInfo) => {
+						iframe.contentWindow?.postMessage(
+							{
+								action: "fillJobInfo",
+								data: jobInfo,
+							},
+							"*",
+						);
+					});
+				}
+			}, 1000); // Small delay to ensure page content has updated
+		}
+	});
+
+	// Start observing URL changes by watching for changes in the body
+	urlObserver.observe(document, { subtree: true, childList: true });
+
 	// Create a toggle button that will be shown initially
 	const toggleButton = document.createElement("div");
 	toggleButton.id = "notion-job-tracker-toggle";
@@ -54,6 +86,17 @@ function injectSidebar() {
 				iframe.style.width = "380px";
 				toggleButton.innerHTML = "<span>›</span>";
 				toggleButton.style.right = "380px";
+
+				// Extract and send job info when sidebar is initially open
+				extractJobInfo().then((jobInfo) => {
+					iframe.contentWindow?.postMessage(
+						{
+							action: "fillJobInfo",
+							data: jobInfo,
+						},
+						"*",
+					);
+				});
 			}
 		});
 	} catch (error) {
@@ -68,6 +111,17 @@ function injectSidebar() {
 				iframe.style.width = "380px";
 				toggleButton.innerHTML = "<span>›</span>";
 				toggleButton.style.right = "380px";
+
+				// Extract and send job info when sidebar is initially open
+				extractJobInfo().then((jobInfo) => {
+					iframe.contentWindow?.postMessage(
+						{
+							action: "fillJobInfo",
+							data: jobInfo,
+						},
+						"*",
+					);
+				});
 			}
 		} catch (localError) {
 			console.log(
@@ -84,6 +138,17 @@ function injectSidebar() {
 			iframe.style.width = "380px";
 			toggleButton.innerHTML = "<span>›</span>";
 			toggleButton.style.right = "380px";
+
+			// Extract and send job info when sidebar is opened
+			extractJobInfo().then((jobInfo) => {
+				iframe.contentWindow?.postMessage(
+					{
+						action: "fillJobInfo",
+						data: jobInfo,
+					},
+					"*",
+				);
+			});
 		} else {
 			iframe.style.width = "0";
 			toggleButton.innerHTML =
@@ -117,6 +182,17 @@ function injectSidebar() {
 		if (event.origin === chrome.runtime.getURL("").slice(0, -1)) {
 			if (event.data.action === "toggleSidebar") {
 				toggleButton.click();
+			} else if (event.data.action === "extractJobInfo") {
+				// Handle request to extract job info
+				extractJobInfo().then((jobInfo) => {
+					iframe.contentWindow?.postMessage(
+						{
+							action: "fillJobInfo",
+							data: jobInfo,
+						},
+						"*",
+					);
+				});
 			}
 		}
 	});
@@ -125,6 +201,18 @@ function injectSidebar() {
 		chrome.runtime.onMessage.addListener((request) => {
 			if (request.action === "toggleSidebar") {
 				toggleButton.click();
+			} else if (request.action === "extractJobInfo") {
+				// Extract job info and respond
+				extractJobInfo().then((jobInfo) => {
+					iframe.contentWindow?.postMessage(
+						{
+							action: "fillJobInfo",
+							data: jobInfo,
+						},
+						"*",
+					);
+					return jobInfo;
+				});
 			}
 			return true;
 		});
@@ -189,7 +277,14 @@ async function extractJobInfo(): Promise<JobInfo> {
 		(url.includes("linkedin.com") && url.includes("/view/"))
 	) {
 		console.log("LinkedIn job page detected, extracting information...");
-		jobInfo = await extractFromLinkedIn();
+		try {
+			// Wait a short time to ensure the page is fully loaded after AJAX changes
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			jobInfo = await extractFromLinkedIn();
+			console.log("Extracted job info:", jobInfo);
+		} catch (error) {
+			console.error("Error extracting job info:", error);
+		}
 	} else {
 		console.log("Not a LinkedIn job page, no information extracted");
 	}
@@ -214,6 +309,8 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".job-details-jobs-unified-top-card__job-title", // New job page layout
 		"h1.top-card-layout__title", // Another possible layout
 		"h1.job-title", // Another possible layout
+		"h2.t-24.t-bold.jobs-unified-top-card__job-title", // Additional selector for modern LinkedIn
+		".jobs-unified-top-card__job-title", // Generic class
 	];
 
 	for (const selector of titleSelectors) {
@@ -232,6 +329,7 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".jobs-unified-top-card__company-name", // Another variation
 		'a[data-tracking-control-name="public_jobs_topcard_company_name"]', // Another tracking attribute
 		"a[data-test-job-company-name]", // Data attribute selector
+		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__company-name", // Nested selector
 	];
 
 	for (const selector of companySelectors) {
@@ -249,6 +347,9 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".topcard__flavor--bullet", // Older job page layout
 		".job-details-jobs-unified-top-card__company-name + span", // Sibling of company name
 		"span.location", // Standard location span
+		".jobs-unified-top-card__bullet", // Generic bullet class
+		".jobs-unified-top-card__workplace-type", // Workplace type
+		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__bullet", // Nested structure
 	];
 
 	for (const selector of locationSelectors) {
@@ -263,7 +364,8 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 	const salarySelectors = [
 		".compensation__salary", // Standard salary
 		".job-details-jobs-unified-top-card__job-insight > .job-details-jobs-unified-top-card__job-insight-view-model-secondary", // New layout salary
-		'span:contains("$")', // Any span with a dollar sign
+		".jobs-unified-top-card__job-insight:contains('$')", // Modern LinkedIn salary
+		".jobs-unified-top-card__job-insight-container .jobs-unified-top-card__job-insight:contains('$')", // Nested structure
 	];
 
 	for (const selector of salarySelectors) {
@@ -271,9 +373,11 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		if (selector.includes(":contains")) {
 			// For custom selector with :contains
 			const textToFind = selector.match(/:"(.*?)"/)?.[1] || "$";
-			const spans = document.querySelectorAll("span");
-			salaryElement = Array.from(spans).find((span) =>
-				span.textContent?.includes(textToFind),
+			const elements = document.querySelectorAll(
+				selector.split(":contains")[0],
+			);
+			salaryElement = Array.from(elements).find((el) =>
+				el.textContent?.includes(textToFind),
 			);
 		} else {
 			salaryElement = document.querySelector(selector);
@@ -291,6 +395,9 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".show-more-less-html__markup", // Another description container
 		"#job-details", // Job details section
 		".description__text", // Older description text layout
+		".jobs-description", // Modern description container
+		".jobs-description-content", // Content within description
+		".jobs-box__html-content", // HTML content box
 	];
 
 	for (const selector of descriptionSelectors) {
@@ -300,6 +407,6 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 			break;
 		}
 	}
-	console.log("Extracted job info:", jobInfo);
+
 	return jobInfo;
 }

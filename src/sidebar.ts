@@ -70,6 +70,44 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	});
 
+	// Listen for messages from parent page (sidebarInjector)
+	window.addEventListener("message", (event) => {
+		if (event.data && event.data.action === "fillJobInfo") {
+			fillFormWithJobInfo(event.data.data);
+		}
+	});
+
+	// Function to fill form with job info
+	function fillFormWithJobInfo(jobInfo: ExtractJobResponse) {
+		if (!jobInfo || jobInfo.error) return;
+
+		// Fill in the form with the extracted job info
+		if (jobInfo.company) {
+			(document.getElementById("company") as HTMLInputElement).value =
+				jobInfo.company;
+		}
+
+		if (jobInfo.position) {
+			(document.getElementById("position") as HTMLInputElement).value =
+				jobInfo.position;
+		}
+
+		if (jobInfo.location) {
+			(document.getElementById("location") as HTMLInputElement).value =
+				jobInfo.location;
+		}
+
+		if (jobInfo.salary) {
+			(document.getElementById("salary") as HTMLInputElement).value =
+				jobInfo.salary;
+		}
+
+		if (jobInfo.description) {
+			(document.getElementById("description") as HTMLTextAreaElement).value =
+				jobInfo.description;
+		}
+	}
+
 	// Check if Notion API token and database ID are set
 	chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
 		if (!result.notionToken || !result.databaseId) {
@@ -81,8 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
 			setupContainer.classList.add("hidden");
 			jobFormContainer.classList.remove("hidden");
 
-			// Get current tab URL and prefill the form
-			getCurrentTabInfo();
+			// Request job info from parent page
+			window.parent.postMessage({ action: "extractJobInfo" }, "*");
 		}
 	});
 
@@ -274,7 +312,6 @@ document.addEventListener("DOMContentLoaded", () => {
 			);
 		});
 	});
-
 	// Function to get current tab info and prefill form
 	function getCurrentTabInfo() {
 		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -283,45 +320,9 @@ document.addEventListener("DOMContentLoaded", () => {
 				const urlInput = document.getElementById("job-url") as HTMLInputElement;
 				urlInput.value = tabs[0].url;
 
-				// Try to extract job info from page content
-				chrome.tabs.sendMessage(
-					tabs[0].id as number,
-					{ action: "extractJobInfo" },
-					(response: ExtractJobResponse) => {
-						if (response && !response.error) {
-							// Prefill form with extracted data
-							if (response.company) {
-								(document.getElementById("company") as HTMLInputElement).value =
-									response.company;
-							}
-							if (response.position) {
-								(
-									document.getElementById("position") as HTMLInputElement
-								).value = response.position;
-							}
-							if (response.location) {
-								(
-									document.getElementById("location") as HTMLInputElement
-								).value = response.location;
-							}
-							if (response.salary) {
-								(document.getElementById("salary") as HTMLInputElement).value =
-									response.salary;
-							}
-							if (response.description) {
-								(
-									document.getElementById("description") as HTMLTextAreaElement
-								).value = response.description;
-							}
-						} else if (chrome.runtime.lastError) {
-							// Content script might not be loaded - ignore this error
-							console.log(
-								"Content script not available:",
-								chrome.runtime.lastError,
-							);
-						}
-					},
-				);
+				// We're now using the parent window message system instead of direct tab messaging
+				// Send a message to the parent window to extract job info
+				window.parent.postMessage({ action: "extractJobInfo" }, "*");
 			}
 		});
 	}
