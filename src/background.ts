@@ -33,6 +33,13 @@ interface AddJobResponse {
 	data?: any;
 }
 
+// Handle browser action click (toolbar button)
+chrome.action.onClicked.addListener((tab) => {
+	if (tab.id) {
+		chrome.tabs.sendMessage(tab.id, { action: "toggleSidebar" });
+	}
+});
+
 // Prevent duplicate submissions
 let isSubmitting: boolean = false;
 

@@ -1,0 +1,227 @@
+/* sidebar.css */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px;
+}
+
+.sidebar-body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: transparent;
+  color: #333;
+  overflow-x: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.sidebar-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 380px;
+  background-color: #fff;
+  box-shadow: -5px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 10000;
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+}
+
+.sidebar-container.collapsed {
+  transform: translateX(380px);
+}
+
+.sidebar-toggle-btn {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 60px;
+  background-color: #037dde;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 5px 0 0 5px;
+  box-shadow: -3px 0 5px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+}
+
+.sidebar-toggle-btn .toggle-icon {
+  font-size: 20px;
+  font-weight: bold;
+  transform: rotate(0);
+  transition: transform 0.3s ease;
+}
+
+.sidebar-container.collapsed .sidebar-toggle-btn .toggle-icon {
+  transform: rotate(180deg);
+}
+
+.sidebar-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+}
+
+h1 {
+  font-size: 18px;
+  color: #2e3033;
+}
+
+h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #2e3033;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #505965;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #037dde;
+  box-shadow: 0 0 0 2px rgba(3, 125, 222, 0.2);
+}
+
+textarea {
+  min-height: 80px;
+}
+
+.larger-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  background-color: #2e3033;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+button:hover {
+  background-color: #454b53;
+}
+
+#save-job {
+  background-color: #037dde;
+}
+
+#save-job:hover {
+  background-color: #0366b4;
+}
+
+#settings-button {
+  background-color: #6c757d;
+}
+
+#settings-button:hover {
+  background-color: #5a6268;
+}
+
+.footer {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.help-text {
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.help-text a {
+  color: #037dde;
+  text-decoration: none;
+}
+
+.help-text a:hover {
+  text-decoration: underline;
+}
+
+.hidden {
+  display: none;
+}
+
+#status-message {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+#status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+#status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+#status-message.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #037dde;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

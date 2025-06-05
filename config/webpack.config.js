@@ -9,8 +9,8 @@ const PATHS = require("./paths");
 const config = (env, argv) =>
 	merge(common, {
 		entry: {
-			popup: PATHS.src + "/popup.ts",
-			contentScript: PATHS.src + "/contentScript.ts",
+			sidebar: PATHS.src + "/sidebar.ts",
+			sidebarInjector: PATHS.src + "/sidebarInjector.ts",
 			background: PATHS.src + "/background.ts",
 		},
 		resolve: {
