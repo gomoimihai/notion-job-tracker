@@ -1,11 +1,53 @@
+// popup.ts
+
+// Define interfaces for the job data
+interface JobData {
+	company: string;
+	position: string;
+	location: string;
+	salary: string;
+	jobUrl: string;
+	status: string;
+	description: string;
+	notes: string;
+}
+
+// Define interfaces for message responses
+interface ExtractJobResponse {
+	company?: string;
+	position?: string;
+	location?: string;
+	salary?: string;
+	description?: string;
+	error?: string;
+}
+
+interface AddJobResponse {
+	success: boolean;
+	error?: string;
+	requireConfirmation?: boolean;
+	jobUrl?: string;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-	const jobForm = document.getElementById("job-form");
-	const setupContainer = document.getElementById("setup-container");
-	const jobFormContainer = document.getElementById("job-form-container");
-	const settingsButton = document.getElementById("settings-button");
-	const saveSettingsButton = document.getElementById("save-settings");
-	const helpLink = document.getElementById("help-link");
-	const statusMessage = document.getElementById("status-message");
+	// Get DOM elements with proper type casting
+	const jobForm = document.getElementById("job-form") as HTMLFormElement;
+	const setupContainer = document.getElementById(
+		"setup-container",
+	) as HTMLElement;
+	const jobFormContainer = document.getElementById(
+		"job-form-container",
+	) as HTMLElement;
+	const settingsButton = document.getElementById(
+		"settings-button",
+	) as HTMLButtonElement;
+	const saveSettingsButton = document.getElementById(
+		"save-settings",
+	) as HTMLButtonElement;
+	const helpLink = document.getElementById("help-link") as HTMLAnchorElement;
+	const statusMessage = document.getElementById(
+		"status-message",
+	) as HTMLElement;
 
 	// Check if Notion API token and database ID are set
 	chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
@@ -26,8 +68,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	// Settings button click handler
 	settingsButton.addEventListener("click", () => {
 		chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
-			document.getElementById("notion-token").value = result.notionToken || "";
-			document.getElementById("database-id").value = result.databaseId || "";
+			(document.getElementById("notion-token") as HTMLInputElement).value =
+				result.notionToken || "";
+			(document.getElementById("database-id") as HTMLInputElement).value =
+				result.databaseId || "";
 		});
 
 		setupContainer.classList.remove("hidden");
@@ -36,8 +80,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	// Save settings button click handler
 	saveSettingsButton.addEventListener("click", () => {
-		const notionToken = document.getElementById("notion-token").value.trim();
-		const databaseId = document.getElementById("database-id").value.trim();
+		const notionToken = (
+			document.getElementById("notion-token") as HTMLInputElement
+		).value.trim();
+		const databaseId = (
+			document.getElementById("database-id") as HTMLInputElement
+		).value.trim();
 
 		if (!notionToken || !databaseId) {
 			showStatusMessage(
@@ -72,18 +120,34 @@ document.addEventListener("DOMContentLoaded", () => {
 			url: "https://developers.notion.com/docs/create-a-notion-integration",
 		});
 	});
+
 	// Job form submit handler
 	jobForm.addEventListener("submit", (event) => {
 		event.preventDefault();
-		// Get form values
-		const company = document.getElementById("company").value.trim();
-		const position = document.getElementById("position").value.trim();
-		const location = document.getElementById("location").value.trim();
-		const salary = document.getElementById("salary").value.trim();
-		const jobUrl = document.getElementById("job-url").value.trim();
-		const status = document.getElementById("status").value;
-		const description = document.getElementById("description").value.trim();
-		const notes = document.getElementById("notes").value.trim();
+		// Get form values with proper type casting
+		const company = (
+			document.getElementById("company") as HTMLInputElement
+		).value.trim();
+		const position = (
+			document.getElementById("position") as HTMLInputElement
+		).value.trim();
+		const location = (
+			document.getElementById("location") as HTMLInputElement
+		).value.trim();
+		const salary = (
+			document.getElementById("salary") as HTMLInputElement
+		).value.trim();
+		const jobUrl = (
+			document.getElementById("job-url") as HTMLInputElement
+		).value.trim();
+		const status = (document.getElementById("status") as HTMLSelectElement)
+			.value;
+		const description = (
+			document.getElementById("description") as HTMLTextAreaElement
+		).value.trim();
+		const notes = (
+			document.getElementById("notes") as HTMLTextAreaElement
+		).value.trim();
 
 		if (!company || !position || !jobUrl) {
 			showStatusMessage("Please fill in all required fields", "error");
@@ -111,18 +175,18 @@ document.addEventListener("DOMContentLoaded", () => {
 						databaseId: result.databaseId,
 						forceSubmit: forceSubmit,
 						jobData: {
-							company: company,
-							position: position,
-							location: location,
-							salary: salary,
-							jobUrl: jobUrl,
-							status: status,
-							description: description,
-							notes: notes,
+							company,
+							position,
+							location,
+							salary,
+							jobUrl,
+							status,
+							description,
+							notes,
 						},
 					},
 				},
-				(response) => {
+				(response: AddJobResponse) => {
 					toggleFormState(true);
 
 					// Handle potential duplicate job URL
@@ -177,10 +241,11 @@ document.addEventListener("DOMContentLoaded", () => {
 		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 			if (tabs.length > 0) {
 				const currentTab = tabs[0];
-				const url = currentTab.url;
+				if (!currentTab.id) return; // Safety check
+				const url = currentTab.url || "";
 
 				// Prefill job URL
-				document.getElementById("job-url").value = url;
+				(document.getElementById("job-url") as HTMLInputElement).value = url;
 
 				// Check if tab URL is a LinkedIn job site
 				const isJobSite =
@@ -209,62 +274,69 @@ document.addEventListener("DOMContentLoaded", () => {
 									"error",
 								);
 								return;
-							}
-
-							// After successful injection, try to extract job info
-							chrome.tabs.sendMessage(
-								currentTab.id,
-								{ action: "extractJobInfo" },
-								(response) => {
-									if (chrome.runtime.lastError) {
-										console.error(
-											"Error extracting job info:",
-											JSON.stringify(chrome.runtime.lastError, null, 2),
-										);
-										showStatusMessage(
-											"Could not extract job details. Please fill in manually.",
-											"error",
-										);
-										return;
-									}
-
-									if (response) {
-										// Prefill form with extracted data
-										document.getElementById("company").value =
-											response.company || "";
-										document.getElementById("position").value =
-											response.position || "";
-										document.getElementById("location").value =
-											response.location || "";
-										document.getElementById("salary").value =
-											response.salary || "";
-										document.getElementById("description").value =
-											response.description || "";
-
-										// Check if we successfully extracted any data
-										if (
-											response.company ||
-											response.position ||
-											response.location
-										) {
-											showStatusMessage(
-												"Job details extracted successfully!",
-												"success",
+							} // After successful injection, try to extract job info
+							if (currentTab.id !== undefined) {
+								chrome.tabs.sendMessage(
+									currentTab.id as number,
+									{ action: "extractJobInfo" },
+									(response: ExtractJobResponse) => {
+										if (chrome.runtime.lastError) {
+											console.error(
+												"Error extracting job info:",
+												JSON.stringify(chrome.runtime.lastError, null, 2),
 											);
+											showStatusMessage(
+												"Could not extract job details. Please fill in manually.",
+												"error",
+											);
+											return;
+										}
+
+										if (response) {
+											// Prefill form with extracted data
+											(
+												document.getElementById("company") as HTMLInputElement
+											).value = response.company || "";
+											(
+												document.getElementById("position") as HTMLInputElement
+											).value = response.position || "";
+											(
+												document.getElementById("location") as HTMLInputElement
+											).value = response.location || "";
+											(
+												document.getElementById("salary") as HTMLInputElement
+											).value = response.salary || "";
+											(
+												document.getElementById(
+													"description",
+												) as HTMLTextAreaElement
+											).value = response.description || "";
+
+											// Check if we successfully extracted any data
+											if (
+												response.company ||
+												response.position ||
+												response.location
+											) {
+												showStatusMessage(
+													"Job details extracted successfully!",
+													"success",
+												);
+											} else {
+												showStatusMessage(
+													"Limited job details found. Please fill in missing information.",
+													"",
+												);
+											}
 										} else {
 											showStatusMessage(
-												"Limited job details found. Please fill in missing information.",
+												"No job details found. Please fill in manually.",
 												"",
 											);
 										}
-									} else {
-										showStatusMessage(
-											"No job details found. Please fill in manually.",
-											"",
-										);
-									}
-								},
-							);
+									},
+								);
+							}
 						},
 					);
 				} else {
@@ -278,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// Helper function to show status messages
-	function showStatusMessage(message, type) {
+	function showStatusMessage(message: string, type: string) {
 		statusMessage.textContent = message;
 		statusMessage.className = "";
 		if (type) {
@@ -295,10 +367,10 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	// Helper function to toggle form state (enable/disable inputs)
-	function toggleFormState(enabled) {
+	function toggleFormState(enabled: boolean) {
 		const formElements = jobForm.elements;
 		for (let i = 0; i < formElements.length; i++) {
-			formElements[i].disabled = !enabled;
+			(formElements[i] as HTMLInputElement).disabled = !enabled;
 		}
 	}
 });

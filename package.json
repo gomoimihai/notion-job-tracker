@@ -4,19 +4,26 @@
   "description": "My Chrome Extension",
   "private": true,
   "scripts": {
+    "dev": "webpack --mode=development --watch --config config/webpack.config.js",
     "watch": "webpack --mode=development --watch --config config/webpack.config.js",
     "build": "webpack --mode=production --config config/webpack.config.js",
     "pack": "node pack.js",
-    "repack": "npm run build && npm run pack"
+    "repack": "npm run build && npm run pack",
+    "typecheck": "tsc --noEmit",
+    "lint": "npx @biomejs/biome check ./src"
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.0-beta.6",
+    "@types/chrome": "^0.0.260",
+    "@types/node": "^20.15.0",
     "adm-zip": "^0.5.16",
     "copy-webpack-plugin": "^10.2.4",
     "css-loader": "^6.11.0",
     "file-loader": "^6.2.0",
     "mini-css-extract-plugin": "^2.9.2",
     "prettier": "^2.8.8",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.5",
     "webpack": "^5.99.9",
     "webpack-cli": "^4.10.0",
     "webpack-merge": "^5.10.0"

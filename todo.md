@@ -41,6 +41,8 @@
   - [ ] Keyboard shortcuts for quick entry
   - [ ] Custom field support for different Notion database schemas
 
+- [ ] Meet the hiring team .jobs-poster__name
+
 ## Technical Debt
 
 - [ ] Refactor content scripts for easier maintenance

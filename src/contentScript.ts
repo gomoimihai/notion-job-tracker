@@ -1,24 +1,43 @@
+// contentScript.ts
+
+// Define the job info interface
+interface JobInfo {
+	company: string;
+	position: string;
+	location: string;
+	salary: string;
+	description: string;
+	error?: string;
+}
+
+// Define the message request interface
+interface ExtractJobRequest {
+	action: string;
+}
+
 // Listen for messages from popup script
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-	if (request.action === "extractJobInfo") {
-		// Use promise pattern to handle async function with sendResponse
-		extractJobInfo()
-			.then((jobInfo) => {
-				console.log("Job info extracted:", jobInfo);
-				sendResponse(jobInfo);
-			})
-			.catch((error) => {
-				console.error("Error extracting job info:", error);
-				sendResponse({ error: error.message });
-			});
-	}
-	return true; // Return true to allow asynchronous response
-});
+chrome.runtime.onMessage.addListener(
+	(request: ExtractJobRequest, _sender, sendResponse) => {
+		if (request.action === "extractJobInfo") {
+			// Use promise pattern to handle async function with sendResponse
+			extractJobInfo()
+				.then((jobInfo) => {
+					console.log("Job info extracted:", jobInfo);
+					sendResponse(jobInfo);
+				})
+				.catch((error: Error) => {
+					console.error("Error extracting job info:", error);
+					sendResponse({ error: error.message });
+				});
+		}
+		return true; // Return true to allow asynchronous response
+	},
+);
 
 // Function to extract job information from LinkedIn jobs
-async function extractJobInfo() {
+async function extractJobInfo(): Promise<JobInfo> {
 	const url = window.location.href;
-	let jobInfo = {
+	let jobInfo: JobInfo = {
 		company: "",
 		position: "",
 		location: "",
@@ -42,8 +61,8 @@ async function extractJobInfo() {
 }
 
 // Extract job info from LinkedIn
-async function extractFromLinkedIn() {
-	const jobInfo = {
+async function extractFromLinkedIn(): Promise<JobInfo> {
+	const jobInfo: JobInfo = {
 		company: "",
 		position: "",
 		location: "",
@@ -60,7 +79,7 @@ async function extractFromLinkedIn() {
 	// console.log('da noi intram aici');
 	for (const selector of titleSelectors) {
 		const titleElement = document.querySelector(selector);
-		if (titleElement?.textContent.trim()) {
+		if (titleElement?.textContent?.trim()) {
 			jobInfo.position = titleElement.textContent.trim();
 			console.log("Position found:", jobInfo.position);
 			break;
@@ -79,7 +98,7 @@ async function extractFromLinkedIn() {
 
 	for (const selector of companySelectors) {
 		const companyElement = document.querySelector(selector);
-		if (companyElement?.textContent.trim()) {
+		if (companyElement?.textContent?.trim()) {
 			jobInfo.company = companyElement.textContent.trim();
 			break;
 		}
@@ -97,7 +116,7 @@ async function extractFromLinkedIn() {
 
 	for (const selector of locationSelectors) {
 		const locationElement = document.querySelector(selector);
-		if (locationElement?.textContent.trim()) {
+		if (locationElement?.textContent?.trim()) {
 			jobInfo.location = locationElement.textContent
 				.trim()
 				.replace(/\s+/g, " ");
@@ -114,7 +133,7 @@ async function extractFromLinkedIn() {
 
 	for (const selector of salarySelectors) {
 		const salaryElement = document.querySelector(selector);
-		if (salaryElement?.textContent.trim()) {
+		if (salaryElement?.textContent?.trim()) {
 			jobInfo.salary = salaryElement.textContent.trim();
 			break;
 		}
@@ -131,7 +150,7 @@ async function extractFromLinkedIn() {
 
 	for (const selector of descriptionSelectors) {
 		const descriptionElement = document.querySelector(selector);
-		if (descriptionElement?.textContent.trim()) {
+		if (descriptionElement?.textContent?.trim()) {
 			jobInfo.description = descriptionElement.textContent
 				.trim()
 				.substring(0, 5000); // Limit to 5000 chars

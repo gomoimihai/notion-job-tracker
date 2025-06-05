@@ -1,18 +1,52 @@
-// background.js
+// background.ts
+// Type definitions for request and response
+
+// Define the job data interface
+interface JobData {
+	company: string;
+	position: string;
+	location: string;
+	jobUrl: string;
+	salary: string;
+	status: string;
+	description: string;
+	notes: string;
+}
+
+// Define the message request interface
+interface AddJobRequest {
+	action: string;
+	data: {
+		notionToken: string;
+		databaseId: string;
+		jobData: JobData;
+		forceSubmit?: boolean;
+	};
+}
+
+// Define the response interface
+interface AddJobResponse {
+	success: boolean;
+	error?: string;
+	requireConfirmation?: boolean;
+	jobUrl?: string;
+	data?: any;
+}
+
 // Prevent duplicate submissions
-let isSubmitting = false;
+let isSubmitting: boolean = false;
 
 // Store recently submitted job URLs to prevent duplicates
-const recentlySubmittedJobs = new Set();
-const MAX_RECENT_JOBS = 50; // Remember the last 50 jobs
+const recentlySubmittedJobs: Set<string> = new Set();
+const MAX_RECENT_JOBS: number = 50; // Remember the last 50 jobs
 
 // Function to check if a job URL was recently submitted
-function wasRecentlySubmitted(jobUrl) {
+function wasRecentlySubmitted(jobUrl: string): boolean {
 	return recentlySubmittedJobs.has(jobUrl);
 }
 
 // Function to add a job URL to the recently submitted list
-function addToRecentlySubmitted(jobUrl) {
+function addToRecentlySubmitted(jobUrl: string): void {
 	// Add the current URL
 	recentlySubmittedJobs.add(jobUrl);
 
@@ -26,73 +60,89 @@ function addToRecentlySubmitted(jobUrl) {
 	}
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	if (request.action === "addJobToNotion") {
-		const jobUrl = request.data.jobData.jobUrl;
+chrome.runtime.onMessage.addListener(
+	(request: AddJobRequest, sender, sendResponse) => {
+		if (request.action === "addJobToNotion") {
+			const jobUrl = request.data.jobData.jobUrl;
 
-		// Check if this job was recently submitted
-		if (wasRecentlySubmitted(jobUrl)) {
-			console.log(
-				"Job URL was recently submitted, preventing potential duplicate:",
-				jobUrl,
-			);
+			// Check if this job was recently submitted
+			if (wasRecentlySubmitted(jobUrl)) {
+				console.log(
+					"Job URL was recently submitted, preventing potential duplicate:",
+					jobUrl,
+				);
 
-			// Ask for confirmation before proceeding
-			if (!request.data.forceSubmit) {
+				// Ask for confirmation before proceeding
+				if (!request.data.forceSubmit) {
+					sendResponse({
+						success: false,
+						error:
+							"This job URL was recently submitted. To submit anyway, please try again.",
+						requireConfirmation: true,
+						jobUrl: jobUrl,
+					});
+					return true;
+				}
+
+				console.log("Forcing submission of a potential duplicate job");
+			}
+
+			// Check if there's already a submission in progress
+			if (isSubmitting) {
+				console.log("Job submission already in progress, preventing duplicate");
 				sendResponse({
 					success: false,
-					error:
-						"This job URL was recently submitted. To submit anyway, please try again.",
-					requireConfirmation: true,
-					jobUrl: jobUrl,
+					error: "A job submission is already in progress. Please wait.",
 				});
 				return true;
 			}
 
-			console.log("Forcing submission of a potential duplicate job");
-		}
+			isSubmitting = true;
+			console.log("Starting job submission to Notion");
 
-		// Check if there's already a submission in progress
-		if (isSubmitting) {
-			console.log("Job submission already in progress, preventing duplicate");
-			sendResponse({
-				success: false,
-				error: "A job submission is already in progress. Please wait.",
-			});
+			addJobToNotion(request.data)
+				.then((result) => {
+					isSubmitting = false;
+
+					// Add to recently submitted if successful
+					if (result.success && jobUrl) {
+						addToRecentlySubmitted(jobUrl);
+					}
+
+					console.log("Job submission completed successfully");
+					sendResponse(result);
+				})
+				.catch((error) => {
+					isSubmitting = false;
+					console.log("Job submission failed:", error);
+					sendResponse({
+						success: false,
+						error: error.message || "Error adding job to Notion",
+					});
+				});
+
+			// Return true to indicate we'll respond asynchronously
 			return true;
 		}
+	},
+);
 
-		isSubmitting = true;
-		console.log("Starting job submission to Notion");
-
-		addJobToNotion(request.data)
-			.then((result) => {
-				isSubmitting = false;
-
-				// Add to recently submitted if successful
-				if (result.success && jobUrl) {
-					addToRecentlySubmitted(jobUrl);
-				}
-
-				console.log("Job submission completed successfully");
-				sendResponse(result);
-			})
-			.catch((error) => {
-				isSubmitting = false;
-				console.log("Job submission failed:", error);
-				sendResponse({
-					success: false,
-					error: error.message || "Error adding job to Notion",
-				});
-			});
-
-		// Return true to indicate we'll respond asynchronously
-		return true;
-	}
-});
+// Define the Notion database schema interface
+interface NotionDbSchema {
+	properties: {
+		[key: string]: {
+			type: string;
+			// Other possible fields that might be needed
+		};
+	};
+}
 
 // Function to add a job to the Notion database
-async function addJobToNotion(data) {
+async function addJobToNotion(data: {
+	notionToken: string;
+	databaseId: string;
+	jobData: JobData;
+}): Promise<AddJobResponse> {
 	const { notionToken, databaseId, jobData } = data;
 
 	// Format date for Notion (YYYY-MM-DD)
@@ -119,11 +169,11 @@ async function addJobToNotion(data) {
 			);
 		}
 
-		const dbSchema = await dbResponse.json();
+		const dbSchema = (await dbResponse.json()) as NotionDbSchema;
 		console.log("Database schema:", dbSchema);
 
 		// Helper function to find the correct property name in the database
-		function findPropertyName(searchName) {
+		function findPropertyName(searchName: string): string {
 			// Try direct match first
 			if (dbSchema.properties[searchName]) {
 				return searchName;
@@ -142,7 +192,7 @@ async function addJobToNotion(data) {
 		}
 
 		// Build properties object with correct property names from the database
-		const properties = {};
+		const properties: Record<string, any> = {};
 
 		// Company (Title property)
 		const companyPropName = findPropertyName("Company");
@@ -291,9 +341,9 @@ async function addJobToNotion(data) {
 
 		const result = await response.json();
 		return { success: true, data: result };
-	} catch (error) {
+	} catch (error: any) {
 		console.error("Error adding job to Notion:", error);
-		if (error.response) {
+		if ("response" in error) {
 			console.error("Response data:", error.response.data);
 			console.error("Response status:", error.response.status);
 		}

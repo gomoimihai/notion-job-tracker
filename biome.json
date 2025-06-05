@@ -6,7 +6,10 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"ignoreUnknown": false
+		"ignoreUnknown": false,
+		"include": [
+			"src/**/*.{ts,js,jsx,tsx}"
+		]
 	},
 	"formatter": {
 		"enabled": true,
@@ -22,6 +25,9 @@
 		"formatter": {
 			"quoteStyle": "double"
 		}
+	},
+	"organizeImports": {
+		"enabled": true
 	},
 	"assist": {
 		"enabled": true,

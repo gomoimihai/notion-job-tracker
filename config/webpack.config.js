@@ -1,24 +1,25 @@
-'use strict';
+"use strict";
 
-const { merge } = require('webpack-merge');
+const { merge } = require("webpack-merge");
 
-const common = require('./webpack.common.js');
-const PATHS = require('./paths');
+const common = require("./webpack.common.js");
+const PATHS = require("./paths");
 
 // Merge webpack configuration files
 const config = (env, argv) =>
-  merge(common, {
-    entry: {
-      popup: PATHS.src + '/popup.js',
-      contentScript: PATHS.src + '/contentScript.js',
-      background: PATHS.src + '/background.js',
-    },
-    devtool: argv.mode === 'production' ? false : 'source-map',
-    resolve: {
-      fallback: {
-        "process": false
-      }
-    },
-  });
+	merge(common, {
+		entry: {
+			popup: PATHS.src + "/popup.ts",
+			contentScript: PATHS.src + "/contentScript.ts",
+			background: PATHS.src + "/background.ts",
+		},
+		resolve: {
+			extensions: [".tsx", ".ts", ".js"],
+			fallback: {
+				process: false,
+			},
+		},
+		devtool: argv.mode === "production" ? false : "source-map",
+	});
 
 module.exports = config;
