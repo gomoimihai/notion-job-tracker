@@ -1,4 +1,9 @@
-// popup.js
+'use strict';
+
+import './popup.css';
+
+(function () {
+ // popup.js
 document.addEventListener('DOMContentLoaded', () => {
   const jobForm = document.getElementById('job-form');
   const setupContainer = document.getElementById('setup-container');
@@ -7,10 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveSettingsButton = document.getElementById('save-settings');
   const helpLink = document.getElementById('help-link');
   const statusMessage = document.getElementById('status-message');
-  // Get the default location from storage or set to "Remote" if not found
-  chrome.storage.sync.get(['defaultLocation'], (result) => {
-    document.getElementById('location').value = result.defaultLocation || "Remote";
-  });
 
   // Check if Notion API token and database ID are set
   chrome.storage.sync.get(['notionToken', 'databaseId'], (result) => {
@@ -27,22 +28,22 @@ document.addEventListener('DOMContentLoaded', () => {
       getCurrentTabInfo();
     }
   });
+
   // Settings button click handler
   settingsButton.addEventListener('click', () => {
-    chrome.storage.sync.get(['notionToken', 'databaseId', 'defaultLocation'], (result) => {
+    chrome.storage.sync.get(['notionToken', 'databaseId'], (result) => {
       document.getElementById('notion-token').value = result.notionToken || '';
       document.getElementById('database-id').value = result.databaseId || '';
-      document.getElementById('default-location').value = result.defaultLocation || 'Remote';
     });
     
     setupContainer.classList.remove('hidden');
     jobFormContainer.classList.add('hidden');
   });
+
   // Save settings button click handler
   saveSettingsButton.addEventListener('click', () => {
     const notionToken = document.getElementById('notion-token').value.trim();
     const databaseId = document.getElementById('database-id').value.trim();
-    const defaultLocation = document.getElementById('default-location').value.trim() || 'Remote';
     
     if (!notionToken || !databaseId) {
       showStatusMessage('Please provide both Notion token and database ID', 'error');
@@ -52,15 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save settings to Chrome storage
     chrome.storage.sync.set({ 
       notionToken: notionToken,
-      databaseId: databaseId,
-      defaultLocation: defaultLocation
+      databaseId: databaseId 
     }, () => {
       setupContainer.classList.add('hidden');
       jobFormContainer.classList.remove('hidden');
       showStatusMessage('Settings saved successfully', 'success');
-      
-      // Update the location field with the new default
-      document.getElementById('location').value = defaultLocation;
       
       // Refresh form with current tab info
       getCurrentTabInfo();
@@ -185,27 +182,14 @@ document.addEventListener('DOMContentLoaded', () => {
                           url.includes('glassdoor.com') ||
                           (url.includes('google.com/search') && url.includes('jobs'));
         
-        if (isJobSite) {          // Try to extract job info from the page
+        if (isJobSite) {
+          // Try to extract job info from the page
           chrome.tabs.sendMessage(currentTab.id, { action: 'extractJobInfo' }, (response) => {
             if (response && !chrome.runtime.lastError) {
-              // Get current default location value
-              const currentLocation = document.getElementById('location').value;
-              
               // Prefill form with extracted data
               document.getElementById('company').value = response.company || '';
               document.getElementById('position').value = response.position || '';
-              
-              // Only update location if one was found and it's not empty
-              // This preserves the default "Remote" value or user's preference
-              if (response.location && response.location.trim() !== '') {
-                document.getElementById('location').value = response.location;
-              } else if (currentLocation.trim() === '') {
-                // If current location is empty, get the default from storage
-                chrome.storage.sync.get(['defaultLocation'], (result) => {
-                  document.getElementById('location').value = result.defaultLocation || 'Remote';
-                });
-              }
-              
+              document.getElementById('location').value = response.location || '';
               document.getElementById('salary').value = response.salary || '';
               document.getElementById('description').value = response.description || '';
             }
@@ -240,3 +224,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
+
+})();

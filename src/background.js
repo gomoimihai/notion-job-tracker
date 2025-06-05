@@ -1,3 +1,6 @@
+'use strict';
+
+import { LMStudioClient } from "@lmstudio/sdk";
 // background.js
 // Prevent duplicate submissions
 let isSubmitting = false;
@@ -255,6 +258,13 @@ async function addJobToNotion(data) {
       }
     }
     
+    const client = new LMStudioClient();
+
+    const model = await client.llm.model("deepseek-r1-distill-llama-8b");
+    const modelResult = await model.respond(jobData.description);
+
+    console.info(modelResult.content);
+
     // Now create the page with the correctly formatted properties
     const response = await fetch(`https://api.notion.com/v1/pages`, {
       method: 'POST',

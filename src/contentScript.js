@@ -1,8 +1,4 @@
-//Same content as the original content.js file
-// content.js
-// This script runs on the job listing pages to extract job information
-
-import { LMStudioClient } from "@lmstudio/sdk";
+'use strict';
 
 // Listen for messages from popup script
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {

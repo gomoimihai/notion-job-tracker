@@ -11,18 +11,13 @@
     <div class="header">
       <img src="icons/icon48.png" alt="Notion Job Tracker" class="logo">
       <h1>Notion Job Tracker</h1>
-    </div>    <div id="setup-container" class="hidden">
+    </div>
+
+    <div id="setup-container" class="hidden">
       <h2>Setup Required</h2>
       <p>Please connect your Notion integration and specify your job database.</p>
       <input type="text" id="notion-token" placeholder="Notion API Integration Token">
       <input type="text" id="database-id" placeholder="Notion Database ID">
-      
-      <h3>Preferences</h3>
-      <div class="form-group">
-        <label for="default-location">Default Location</label>
-        <input type="text" id="default-location" placeholder="Default job location">
-      </div>
-      
       <button id="save-settings">Save Settings</button>
       <div class="help-text">
         <a href="#" id="help-link">How to get these values?</a>

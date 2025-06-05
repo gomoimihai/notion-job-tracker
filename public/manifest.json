@@ -9,9 +9,11 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://api.notion.com/*"
+    "https://api.notion.com/*",
+    "http://127.0.0.1:41343/*"
   ],
   "action": {
+    "default_title": "My Extension",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -25,7 +27,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.linkedin.com/*", "*://*.indeed.com/*", "*://*.glassdoor.com/*", "*://www.google.com/search*"],
-      "js": ["content.js"]
+      "js": ["contentScript.js"]
     }
   ],
   "icons": {

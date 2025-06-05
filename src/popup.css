@@ -1,0 +1,201 @@
+/* styles.css */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f7f7f7;
+  color: #333;
+}
+
+.container {
+  width: 380px;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+}
+
+h1 {
+  font-size: 18px;
+  color: #2e3033;
+}
+
+h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #2e3033;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #505965;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #037dde;
+  box-shadow: 0 0 0 2px rgba(3, 125, 222, 0.2);
+}
+
+textarea {
+  min-height: 80px;
+}
+
+.larger-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  background-color: #2e3033;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+button:hover {
+  background-color: #454b53;
+}
+
+#save-job {
+  background-color: #037dde;
+}
+
+#save-job:hover {
+  background-color: #0269b9;
+}
+
+.hidden {
+  display: none;
+}
+
+#status-message {
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.success {
+  background-color: #e6f7ed;
+  color: #157347;
+}
+
+.error {
+  background-color: #f8d7da;
+  color: #b02a37;
+}
+
+.warning {
+  color: #856404;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.btn-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.confirm-btn, .cancel-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.confirm-btn {
+  background-color: #2196f3;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background-color: #0d8bf2;
+}
+
+.cancel-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #e53935;
+}
+
+.help-text {
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.help-text a {
+  color: #037dde;
+  text-decoration: none;
+}
+
+.help-text a:hover {
+  text-decoration: underline;
+}
+
+.footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+}
+
+#settings-button {
+  background-color: transparent;
+  color: #505965;
+  width: auto;
+  margin-top: 0;
+}
+
+#settings-button:hover {
+  background-color: #f1f1f1;
+}
