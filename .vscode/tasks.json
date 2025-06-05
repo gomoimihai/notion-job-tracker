@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Open Chrome with Extension",
+      "type": "shell",
+      "command": "start chrome --load-extension=\"${workspaceFolder}\" --no-first-run",
+      "windows": {
+        "command": "start chrome --load-extension=\"${workspaceFolder}\" --no-first-run"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

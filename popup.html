@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion Job Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="icons/icon48.png" alt="Notion Job Tracker" class="logo">
+      <h1>Notion Job Tracker</h1>
+    </div>
+
+    <div id="setup-container" class="hidden">
+      <h2>Setup Required</h2>
+      <p>Please connect your Notion integration and specify your job database.</p>
+      <input type="text" id="notion-token" placeholder="Notion API Integration Token">
+      <input type="text" id="database-id" placeholder="Notion Database ID">
+      <button id="save-settings">Save Settings</button>
+      <div class="help-text">
+        <a href="#" id="help-link">How to get these values?</a>
+      </div>
+    </div>
+
+    <div id="job-form-container">
+      <h2>Save Job to Notion</h2>
+      <form id="job-form">
+        <div class="form-group">
+          <label for="company">Company</label>
+          <input type="text" id="company" required>
+        </div>
+
+        <div class="form-group">
+          <label for="position">Position</label>
+          <input type="text" id="position" required>
+        </div>
+
+        <div class="form-group">
+          <label for="location">Location</label>
+          <input type="text" id="location">
+        </div>
+
+        <div class="form-group">
+          <label for="salary">Salary</label>
+          <input type="text" id="salary">
+        </div>
+
+        <div class="form-group">
+          <label for="job-url">Job URL</label>
+          <input type="text" id="job-url" required>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="Interested">Interested</option>
+            <option value="Applied">Applied</option>
+            <option value="Interview">Interview</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Not Interested">Not Interested</option>
+          </select>
+        </div>        <div class="form-group">
+          <label for="description">Job Description</label>
+          <textarea id="description" class="larger-textarea"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Notes</label>
+          <textarea id="notes"></textarea>
+        </div>
+
+        <button type="submit" id="save-job">Save to Notion</button>
+      </form>
+      <div id="status-message"></div>
+    </div>
+
+    <div class="footer">
+      <button id="settings-button">Settings</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
