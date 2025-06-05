@@ -7,10 +7,10 @@
     "watch": "webpack --mode=development --watch --config config/webpack.config.js",
     "build": "webpack --mode=production --config config/webpack.config.js",
     "pack": "node pack.js",
-    "repack": "npm run build && npm run pack",
-    "format": "prettier --write --ignore-unknown \"{config,public,src}/**/*.{html,css,js,ts,json}\""
+    "repack": "npm run build && npm run pack"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.0.0-beta.6",
     "adm-zip": "^0.5.16",
     "copy-webpack-plugin": "^10.2.4",
     "css-loader": "^6.11.0",
@@ -22,6 +22,7 @@
     "webpack-merge": "^5.10.0"
   },
   "dependencies": {
-    "@lmstudio/sdk": "^1.2.0"
+    "@lmstudio/sdk": "^1.2.0",
+    "zod": "^3.25.51"
   }
 }

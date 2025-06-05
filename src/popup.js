@@ -1,228 +1,304 @@
-'use strict';
+document.addEventListener("DOMContentLoaded", () => {
+	const jobForm = document.getElementById("job-form");
+	const setupContainer = document.getElementById("setup-container");
+	const jobFormContainer = document.getElementById("job-form-container");
+	const settingsButton = document.getElementById("settings-button");
+	const saveSettingsButton = document.getElementById("save-settings");
+	const helpLink = document.getElementById("help-link");
+	const statusMessage = document.getElementById("status-message");
 
-import './popup.css';
+	// Check if Notion API token and database ID are set
+	chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
+		if (!result.notionToken || !result.databaseId) {
+			// Show setup screen if settings are not configured
+			setupContainer.classList.remove("hidden");
+			jobFormContainer.classList.add("hidden");
+		} else {
+			// Settings are configured, show job form
+			setupContainer.classList.add("hidden");
+			jobFormContainer.classList.remove("hidden");
 
-(function () {
- // popup.js
-document.addEventListener('DOMContentLoaded', () => {
-  const jobForm = document.getElementById('job-form');
-  const setupContainer = document.getElementById('setup-container');
-  const jobFormContainer = document.getElementById('job-form-container');
-  const settingsButton = document.getElementById('settings-button');
-  const saveSettingsButton = document.getElementById('save-settings');
-  const helpLink = document.getElementById('help-link');
-  const statusMessage = document.getElementById('status-message');
+			// Get current tab URL and prefill the form
+			getCurrentTabInfo();
+		}
+	});
 
-  // Check if Notion API token and database ID are set
-  chrome.storage.sync.get(['notionToken', 'databaseId'], (result) => {
-    if (!result.notionToken || !result.databaseId) {
-      // Show setup screen if settings are not configured
-      setupContainer.classList.remove('hidden');
-      jobFormContainer.classList.add('hidden');
-    } else {
-      // Settings are configured, show job form
-      setupContainer.classList.add('hidden');
-      jobFormContainer.classList.remove('hidden');
-      
-      // Get current tab URL and prefill the form
-      getCurrentTabInfo();
-    }
-  });
+	// Settings button click handler
+	settingsButton.addEventListener("click", () => {
+		chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
+			document.getElementById("notion-token").value = result.notionToken || "";
+			document.getElementById("database-id").value = result.databaseId || "";
+		});
 
-  // Settings button click handler
-  settingsButton.addEventListener('click', () => {
-    chrome.storage.sync.get(['notionToken', 'databaseId'], (result) => {
-      document.getElementById('notion-token').value = result.notionToken || '';
-      document.getElementById('database-id').value = result.databaseId || '';
-    });
-    
-    setupContainer.classList.remove('hidden');
-    jobFormContainer.classList.add('hidden');
-  });
+		setupContainer.classList.remove("hidden");
+		jobFormContainer.classList.add("hidden");
+	});
 
-  // Save settings button click handler
-  saveSettingsButton.addEventListener('click', () => {
-    const notionToken = document.getElementById('notion-token').value.trim();
-    const databaseId = document.getElementById('database-id').value.trim();
-    
-    if (!notionToken || !databaseId) {
-      showStatusMessage('Please provide both Notion token and database ID', 'error');
-      return;
-    }
-    
-    // Save settings to Chrome storage
-    chrome.storage.sync.set({ 
-      notionToken: notionToken,
-      databaseId: databaseId 
-    }, () => {
-      setupContainer.classList.add('hidden');
-      jobFormContainer.classList.remove('hidden');
-      showStatusMessage('Settings saved successfully', 'success');
-      
-      // Refresh form with current tab info
-      getCurrentTabInfo();
-    });
-  });
+	// Save settings button click handler
+	saveSettingsButton.addEventListener("click", () => {
+		const notionToken = document.getElementById("notion-token").value.trim();
+		const databaseId = document.getElementById("database-id").value.trim();
 
-  // Help link click handler
-  helpLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    // Open help page in new tab
-    chrome.tabs.create({
-      url: 'https://developers.notion.com/docs/create-a-notion-integration'
-    });
-  });
-  // Job form submit handler
-  jobForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    // Get form values
-    const company = document.getElementById('company').value.trim();
-    const position = document.getElementById('position').value.trim();
-    const location = document.getElementById('location').value.trim();
-    const salary = document.getElementById('salary').value.trim();
-    const jobUrl = document.getElementById('job-url').value.trim();
-    const status = document.getElementById('status').value;
-    const description = document.getElementById('description').value.trim();
-    const notes = document.getElementById('notes').value.trim();
-    
-    if (!company || !position || !jobUrl) {
-      showStatusMessage('Please fill in all required fields', 'error');
-      return;
-    }
-    
-    // Check if this is a forced submission (after duplicate warning)
-    const forceSubmit = jobForm.dataset.forceSubmit === 'true';
-    if (forceSubmit) {
-      delete jobForm.dataset.forceSubmit;
-    }
-    
-    // Disable form while submitting
-    toggleFormState(false);
-    showStatusMessage('Saving to Notion...', '');
-    
-    // Get Notion API token and database ID
-    chrome.storage.sync.get(['notionToken', 'databaseId'], (result) => {
-      // Send message to background script to add job to Notion
-      chrome.runtime.sendMessage({
-        action: 'addJobToNotion',
-        data: {
-          notionToken: result.notionToken,
-          databaseId: result.databaseId,
-          forceSubmit: forceSubmit,
-          jobData: {
-            company: company,
-            position: position,
-            location: location,
-            salary: salary,
-            jobUrl: jobUrl,
-            status: status,
-            description: description,
-            notes: notes
-          }
-        }
-      }, (response) => {
-        toggleFormState(true);
-        
-        // Handle potential duplicate job URL
-        if (response && !response.success && response.requireConfirmation) {
-          const confirmMsg = `This job URL was recently submitted. Submit anyway?`;
-          showStatusMessage(confirmMsg, 'warning');
-          
-          // Add confirm and cancel buttons to the status message
-          const confirmBtn = document.createElement('button');
-          confirmBtn.textContent = 'Submit Anyway';
-          confirmBtn.className = 'confirm-btn';
-          confirmBtn.addEventListener('click', () => {
-            // Set the force submit flag and resubmit the form
-            jobForm.dataset.forceSubmit = 'true';
-            jobForm.dispatchEvent(new Event('submit'));
-          });
-          
-          const cancelBtn = document.createElement('button');
-          cancelBtn.textContent = 'Cancel';
-          cancelBtn.className = 'cancel-btn';
-          cancelBtn.addEventListener('click', () => {
-            showStatusMessage('Submission cancelled', '');
-          });
-          
-          const btnContainer = document.createElement('div');
-          btnContainer.className = 'btn-container';
-          btnContainer.appendChild(confirmBtn);
-          btnContainer.appendChild(cancelBtn);
-          statusMessage.appendChild(btnContainer);
-          
-          return;
-        }
-        
-        if (response && response.success) {
-          showStatusMessage('Job saved to Notion successfully!', 'success');
-          // Clear form after successful submission
-          jobForm.reset();
-        } else {
-          const errorMessage = response && response.error ? response.error : 'Failed to save job to Notion';
-          showStatusMessage(`Error: ${errorMessage}`, 'error');
-        }
-      });
-    });
-  });
+		if (!notionToken || !databaseId) {
+			showStatusMessage(
+				"Please provide both Notion token and database ID",
+				"error",
+			);
+			return;
+		}
 
-  // Function to get the current tab info and prefill the form
-  function getCurrentTabInfo() {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        const currentTab = tabs[0];
-        const url = currentTab.url;
-        
-        // Prefill job URL
-        document.getElementById('job-url').value = url;
-        
-        // Check if tab URL is a job site
-        const isJobSite = url.includes('linkedin.com/jobs') || 
-                          url.includes('indeed.com') || 
-                          url.includes('glassdoor.com') ||
-                          (url.includes('google.com/search') && url.includes('jobs'));
-        
-        if (isJobSite) {
-          // Try to extract job info from the page
-          chrome.tabs.sendMessage(currentTab.id, { action: 'extractJobInfo' }, (response) => {
-            if (response && !chrome.runtime.lastError) {
-              // Prefill form with extracted data
-              document.getElementById('company').value = response.company || '';
-              document.getElementById('position').value = response.position || '';
-              document.getElementById('location').value = response.location || '';
-              document.getElementById('salary').value = response.salary || '';
-              document.getElementById('description').value = response.description || '';
-            }
-          });
-        }
-      }
-    });
-  }
+		// Save settings to Chrome storage
+		chrome.storage.sync.set(
+			{
+				notionToken: notionToken,
+				databaseId: databaseId,
+			},
+			() => {
+				setupContainer.classList.add("hidden");
+				jobFormContainer.classList.remove("hidden");
+				showStatusMessage("Settings saved successfully", "success");
 
-  // Helper function to show status messages
-  function showStatusMessage(message, type) {
-    statusMessage.textContent = message;
-    statusMessage.className = '';
-    if (type) {
-      statusMessage.classList.add(type);
-    }
-    
-    // Auto-clear success messages after a few seconds
-    if (type === 'success') {
-      setTimeout(() => {
-        statusMessage.textContent = '';
-        statusMessage.className = '';
-      }, 3000);
-    }
-  }
+				// Refresh form with current tab info
+				getCurrentTabInfo();
+			},
+		);
+	});
 
-  // Helper function to toggle form state (enable/disable inputs)
-  function toggleFormState(enabled) {
-    const formElements = jobForm.elements;
-    for (let i = 0; i < formElements.length; i++) {
-      formElements[i].disabled = !enabled;
-    }
-  }
+	// Help link click handler
+	helpLink.addEventListener("click", (e) => {
+		e.preventDefault();
+		// Open help page in new tab
+		chrome.tabs.create({
+			url: "https://developers.notion.com/docs/create-a-notion-integration",
+		});
+	});
+	// Job form submit handler
+	jobForm.addEventListener("submit", (event) => {
+		event.preventDefault();
+		// Get form values
+		const company = document.getElementById("company").value.trim();
+		const position = document.getElementById("position").value.trim();
+		const location = document.getElementById("location").value.trim();
+		const salary = document.getElementById("salary").value.trim();
+		const jobUrl = document.getElementById("job-url").value.trim();
+		const status = document.getElementById("status").value;
+		const description = document.getElementById("description").value.trim();
+		const notes = document.getElementById("notes").value.trim();
+
+		if (!company || !position || !jobUrl) {
+			showStatusMessage("Please fill in all required fields", "error");
+			return;
+		}
+
+		// Check if this is a forced submission (after duplicate warning)
+		const forceSubmit = jobForm.dataset.forceSubmit === "true";
+		if (forceSubmit) {
+			delete jobForm.dataset.forceSubmit;
+		}
+
+		// Disable form while submitting
+		toggleFormState(false);
+		showStatusMessage("Saving to Notion...", "");
+
+		// Get Notion API token and database ID
+		chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
+			// Send message to background script to add job to Notion
+			chrome.runtime.sendMessage(
+				{
+					action: "addJobToNotion",
+					data: {
+						notionToken: result.notionToken,
+						databaseId: result.databaseId,
+						forceSubmit: forceSubmit,
+						jobData: {
+							company: company,
+							position: position,
+							location: location,
+							salary: salary,
+							jobUrl: jobUrl,
+							status: status,
+							description: description,
+							notes: notes,
+						},
+					},
+				},
+				(response) => {
+					toggleFormState(true);
+
+					// Handle potential duplicate job URL
+					if (response && !response.success && response.requireConfirmation) {
+						const confirmMsg = `This job URL was recently submitted. Submit anyway?`;
+						showStatusMessage(confirmMsg, "warning");
+
+						// Add confirm and cancel buttons to the status message
+						const confirmBtn = document.createElement("button");
+						confirmBtn.textContent = "Submit Anyway";
+						confirmBtn.className = "confirm-btn";
+						confirmBtn.addEventListener("click", () => {
+							// Set the force submit flag and resubmit the form
+							jobForm.dataset.forceSubmit = "true";
+							jobForm.dispatchEvent(new Event("submit"));
+						});
+
+						const cancelBtn = document.createElement("button");
+						cancelBtn.textContent = "Cancel";
+						cancelBtn.className = "cancel-btn";
+						cancelBtn.addEventListener("click", () => {
+							showStatusMessage("Submission cancelled", "");
+						});
+
+						const btnContainer = document.createElement("div");
+						btnContainer.className = "btn-container";
+						btnContainer.appendChild(confirmBtn);
+						btnContainer.appendChild(cancelBtn);
+						statusMessage.appendChild(btnContainer);
+
+						return;
+					}
+
+					if (response && response.success) {
+						showStatusMessage("Job saved to Notion successfully!", "success");
+						// Clear form after successful submission
+						jobForm.reset();
+					} else {
+						const errorMessage =
+							response && response.error
+								? response.error
+								: "Failed to save job to Notion";
+						showStatusMessage(`Error: ${errorMessage}`, "error");
+					}
+				},
+			);
+		});
+	});
+
+	// Function to get the current tab info and prefill the form
+	function getCurrentTabInfo() {
+		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+			if (tabs.length > 0) {
+				const currentTab = tabs[0];
+				const url = currentTab.url;
+
+				// Prefill job URL
+				document.getElementById("job-url").value = url;
+
+				// Check if tab URL is a LinkedIn job site
+				const isJobSite =
+					url.includes("linkedin.com/jobs") ||
+					url.includes("linkedin.com/job/") ||
+					(url.includes("linkedin.com") && url.includes("/view/"));
+
+				if (isJobSite) {
+					// Show extraction status
+					showStatusMessage("Extracting job details from LinkedIn...", "");
+
+					// First, make sure the content script is injected
+					chrome.scripting.executeScript(
+						{
+							target: { tabId: currentTab.id },
+							files: ["contentScript.js"],
+						},
+						() => {
+							if (chrome.runtime.lastError) {
+								console.error(
+									"Error injecting content script:",
+									chrome.runtime.lastError,
+								);
+								showStatusMessage(
+									"Could not inject content script. Please fill in manually.",
+									"error",
+								);
+								return;
+							}
+
+							// After successful injection, try to extract job info
+							chrome.tabs.sendMessage(
+								currentTab.id,
+								{ action: "extractJobInfo" },
+								(response) => {
+									if (chrome.runtime.lastError) {
+										console.error(
+											"Error extracting job info:",
+											JSON.stringify(chrome.runtime.lastError, null, 2),
+										);
+										showStatusMessage(
+											"Could not extract job details. Please fill in manually.",
+											"error",
+										);
+										return;
+									}
+
+									if (response) {
+										// Prefill form with extracted data
+										document.getElementById("company").value =
+											response.company || "";
+										document.getElementById("position").value =
+											response.position || "";
+										document.getElementById("location").value =
+											response.location || "";
+										document.getElementById("salary").value =
+											response.salary || "";
+										document.getElementById("description").value =
+											response.description || "";
+
+										// Check if we successfully extracted any data
+										if (
+											response.company ||
+											response.position ||
+											response.location
+										) {
+											showStatusMessage(
+												"Job details extracted successfully!",
+												"success",
+											);
+										} else {
+											showStatusMessage(
+												"Limited job details found. Please fill in missing information.",
+												"",
+											);
+										}
+									} else {
+										showStatusMessage(
+											"No job details found. Please fill in manually.",
+											"",
+										);
+									}
+								},
+							);
+						},
+					);
+				} else {
+					showStatusMessage(
+						"This does not appear to be a LinkedIn job page. Only LinkedIn is supported.",
+						"",
+					);
+				}
+			}
+		});
+	}
+
+	// Helper function to show status messages
+	function showStatusMessage(message, type) {
+		statusMessage.textContent = message;
+		statusMessage.className = "";
+		if (type) {
+			statusMessage.classList.add(type);
+		}
+
+		// Auto-clear success messages after a few seconds
+		if (type === "success") {
+			setTimeout(() => {
+				statusMessage.textContent = "";
+				statusMessage.className = "";
+			}, 3000);
+		}
+	}
+
+	// Helper function to toggle form state (enable/disable inputs)
+	function toggleFormState(enabled) {
+		const formElements = jobForm.elements;
+		for (let i = 0; i < formElements.length; i++) {
+			formElements[i].disabled = !enabled;
+		}
+	}
 });
-
-})();
