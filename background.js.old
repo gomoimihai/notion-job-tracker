@@ -83,7 +83,8 @@ async function addJobToNotion(data) {
                 }
               }
             ]
-          } : null,          "Description": jobData.description ? {
+          } : null,          
+          "Description": jobData.description ? {
             "rich_text": [
               {
                 "text": {

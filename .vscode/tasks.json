@@ -2,14 +2,43 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Open Chrome with Extension",
+      "label": "Build Extension",
       "type": "shell",
-      "command": "start chrome --load-extension=\"${workspaceFolder}\" --no-first-run",
-      "windows": {
-        "command": "start chrome --load-extension=\"${workspaceFolder}\" --no-first-run"
-      },
+      "command": "npm run build",
       "group": {
         "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev Build (Watch Mode)",
+      "type": "shell",
+      "command": "npm run dev",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Open Chrome with Extension",
+      "type": "shell",
+      "command": "start chrome --load-extension=\"${workspaceFolder}\\dist\" --no-first-run",
+      "windows": {
+        "command": "start chrome --load-extension=\"${workspaceFolder}\\dist\" --no-first-run"
+      },
+      "group": {
+        "kind": "test",
         "isDefault": true
       },
       "presentation": {

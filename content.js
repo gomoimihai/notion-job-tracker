@@ -212,8 +212,8 @@ function extractFromLinkedIn() {
       // If we found a description, no need to check other selectors
       if (jobInfo.description) {
         // Limit description length to avoid extremely long text
-        if (jobInfo.description.length > 5000) {
-          jobInfo.description = jobInfo.description.substring(0, 5000) + '...';
+        if (jobInfo.description.length > 20000) {
+          jobInfo.description = jobInfo.description.substring(0, 20000) + '...';
         }
         break;
       }
