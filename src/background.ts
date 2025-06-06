@@ -31,6 +31,7 @@ chrome.runtime.onMessage.addListener(
 	(request: AddJobRequest, sender, sendResponse) => {
 		const jobUrl = request.data.jobData.jobUrl;
 		const enhanceAi = request.data.enhanceAi; // Get enhanceAi flag
+
 		if (request.action === "enhanceWithAi") {
 			let jobDataForNotion = { ...request.data.jobData };
 			if (enhanceAi && jobDataForNotion.description) {
@@ -41,9 +42,14 @@ chrome.runtime.onMessage.addListener(
 						description: jobDataForNotion.description,
 					} as JobAnalysisInput)
 						.then((result) => {
-							sendResponse(result);
+							// Format the response to match AddJobResponse interface
+							sendResponse({
+								success: true,
+								data: result,
+							});
 						})
 						.catch((error) => {
+							console.error("AI analysis error:", error);
 							sendResponse({
 								success: false,
 								error: error.message || "Error enhancing with AI",
@@ -51,7 +57,19 @@ chrome.runtime.onMessage.addListener(
 						});
 				} catch (aiError) {
 					console.error("Error during AI analysis:", aiError);
+					sendResponse({
+						success: false,
+						error:
+							aiError instanceof Error
+								? aiError.message
+								: "Error during AI analysis",
+					});
 				}
+			} else {
+				sendResponse({
+					success: false,
+					error: "AI enhancement is disabled or no description provided",
+				});
 			}
 			return true;
 		}

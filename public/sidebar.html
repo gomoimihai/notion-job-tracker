@@ -76,11 +76,19 @@
           <div class="form-group">
             <label for="description">Job Description</label>
             <textarea id="description" class="larger-textarea"></textarea>
+          </div>          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes"></textarea>
           </div>
 
           <div class="form-group">
-            <label for="notes">Notes</label>
-            <textarea id="notes"></textarea>
+            <div id="ai-notes-container" class="ai-notes-container hidden">
+              <div class="ai-notes-header">
+                <span class="ai-notes-title">AI Analysis</span>
+                <span class="ai-notes-badge">AI</span>
+              </div>
+              <div id="ai-notes-content" class="ai-notes-content"></div>
+            </div>
           </div>
 
           <button type="submit" id="save-job">Save to Notion</button>

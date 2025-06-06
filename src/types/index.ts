@@ -1,3 +1,5 @@
+import { JobAnalysis } from '../ai';
+
 export type StatusMessageType = '' | 'success' | 'error' | 'warning' | 'loading';
 
 export interface StatusMessageParams {
@@ -33,6 +35,9 @@ export interface SidebarElements {
     notionTokenInput: HTMLInputElement;
     databaseIdInput: HTMLInputElement;
     enhanceAiCheckbox: HTMLInputElement;
+    // AI Notes UI elements
+    aiNotesContainer: HTMLElement;
+    aiNotesContent: HTMLElement;
 }
 export interface LinkedInSelectorsMap {
     title: string[];
@@ -86,7 +91,20 @@ export interface AddJobResponse {
     error?: string;
     requireConfirmation?: boolean;
     jobUrl?: string;
-    data?: any;
+    data?: JobAnalysis;
+    // AI analysis response fields
+    title?: string;
+    salary?: string;
+    keyPoints?: string[];
+}
+
+export interface AINotes {
+    title?: string;
+    salary?: string;
+    technicalStack?: string;
+    summary?: string[];
+    location?: string;
+    [key: string]: any;
 }
 
 export interface ExtractJobInfoMessage {
@@ -144,4 +162,5 @@ export interface JobAnalysisInput {
 export interface JobAnalysisOutput {
     title: string;
     salary: string;
+    keyPoints?: string[];
 }

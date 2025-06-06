@@ -4,7 +4,9 @@ import {
 	ExtractJobResponse,
 	AddJobResponse,
 	SidebarElements,
+	AINotes,
 } from "./types";
+import { toggleFormState } from "./utils";
 
 document.addEventListener("DOMContentLoaded", () => {
 	// Initialize element references
@@ -53,6 +55,11 @@ function initializeElements(): SidebarElements {
 		enhanceAiCheckbox: document.getElementById(
 			"enhance-ai",
 		) as HTMLInputElement, // Initialize enhance AI checkbox
+		// AI Notes UI elements
+		aiNotesContainer: document.getElementById(
+			"ai-notes-container",
+		) as HTMLElement,
+		aiNotesContent: document.getElementById("ai-notes-content") as HTMLElement,
 	};
 }
 
@@ -138,52 +145,93 @@ function fillFormWithJobInfo(
 ): void {
 	if (!jobInfo || jobInfo.error) return;
 	chrome.storage.sync.get(["enhanceAi"], (result) => {
-		// Send message to background script to add job to Notion
-		chrome.runtime.sendMessage(
-			{
-				action: "enhanceWithAi",
-				data: {
-					jobData: jobInfo,
-					enhanceAi: result.enhanceAi, // Pass enhance AI setting to background
+		// First, immediately fill in basic job info
+		if (jobInfo.company) {
+			elements.companyInput.value = jobInfo.company;
+		}
+
+		if (jobInfo.position) {
+			elements.positionInput.value = jobInfo.position;
+		}
+
+		if (jobInfo.location) {
+			elements.locationInput.value = jobInfo.location;
+		}
+
+		if (jobInfo.salary) {
+			elements.salaryInput.value = jobInfo.salary;
+		}
+
+		if (jobInfo.description) {
+			elements.descriptionTextarea.value = jobInfo.description;
+		}
+
+		if (jobInfo.url) {
+			elements.jobUrlInput.value = jobInfo.url;
+		}
+		// Only proceed with AI enhancement if the setting is enabled
+		if (result.enhanceAi) {
+			// Show loading state while waiting for AI enhancement			// Show loading indicator in status message
+			showStatusMessage("Enhancing with AI...", "loading", elements);
+
+			// Disable form while AI is analyzing
+			toggleFormState({ form: elements.jobForm, enabled: false });
+
+			// Send message to background script for AI enhancement
+			chrome.runtime.sendMessage(
+				{
+					action: "enhanceWithAi",
+					data: {
+						jobData: jobInfo,
+						enhanceAi: result.enhanceAi,
+					},
 				},
-			},
-			(response: AddJobResponse) => {
-				if (chrome.runtime.lastError) {
-					console.error("Error sending message:", chrome.runtime.lastError);
-					showStatusMessage(
-						`Error: ${chrome.runtime.lastError.message}`,
-						"error",
-						elements,
-					);
-					return;
-				}
-				console.log("AI enhancement response:", response);
-				// Fill in the form with the extracted job info
-				if (jobInfo.company) {
-					elements.companyInput.value = jobInfo.company;
-				}
+				(response: AddJobResponse) => {
+					// Re-enable the form regardless of the result
+					toggleFormState({ form: elements.jobForm, enabled: true });
 
-				if (jobInfo.position) {
-					elements.positionInput.value = jobInfo.position;
-				}
+					if (chrome.runtime.lastError) {
+						console.error("Error sending message:", chrome.runtime.lastError);
+						showStatusMessage(
+							`AI enhancement failed: ${chrome.runtime.lastError.message}`,
+							"error",
+							elements,
+						);
+						return;
+					}
+					console.log("AI enhancement response:", response);
+					if (response && response.success) {
+						showStatusMessage("AI enhancement complete", "success", elements);
+						const aiNotes = response.data;
+						if (!aiNotes) {
+							return;
+						}
+						// Update form with AI analysis data
+						// if (aiNotes.title) {
+						// 	// If AI suggests a better title and the user hasn't manually changed it
+						// 	if (
+						// 		!elements.positionInput.value ||
+						// 		elements.positionInput.value === jobInfo.position
+						// 	) {
+						// 		elements.positionInput.value = aiNotes.title;
+						// 	}
+						// }
 
-				if (jobInfo.location) {
-					elements.locationInput.value = jobInfo.location;
-				}
+						// Store raw AI data in notes field (for submission to Notion)
+						elements.notesTextarea.value = JSON.stringify(aiNotes, null, 2);
 
-				if (jobInfo.salary) {
-					elements.salaryInput.value = jobInfo.salary;
-				}
-
-				if (jobInfo.description) {
-					elements.descriptionTextarea.value = jobInfo.description;
-				}
-
-				if (jobInfo.url) {
-					elements.jobUrlInput.value = jobInfo.url;
-				}
-			},
-		);
+						// Display AI notes in a nice format
+						displayAINotes(aiNotes, elements);
+					} else if (response && response.error) {
+						showStatusMessage(
+							`AI enhancement failed: ${response.error}`,
+							"error",
+							elements,
+						);
+					}
+				},
+			);
+		}
 	});
 }
 
@@ -383,11 +431,19 @@ function handleNotionResponse(
 ): void {
 	if (response.success) {
 		showStatusMessage("Job saved successfully!", "success", elements);
-		elements.jobForm.reset(); // Reset form after successful submission
-		// If AI enhanced notes, they are handled by background.ts.
-		// If you need to display the AI notes in the sidebar,
-		// the response.data could carry them back.
-		// For now, just resetting the form.
+
+		// If we have AI notes in the response, display them
+		if (response.data) {
+			displayAINotes(response.data, elements);
+		}
+
+		// Reset form after successful submission
+		elements.jobForm.reset();
+
+		// Hide the AI notes container after form reset
+		setTimeout(() => {
+			elements.aiNotesContainer.classList.add("hidden");
+		}, 100);
 	} else if (response.requireConfirmation && response.jobUrl) {
 		handleDuplicateJobConfirmation(response, jobData, elements);
 	} else {
@@ -472,4 +528,93 @@ function showStatusMessage(
 			elements.statusMessage.style.display = "none";
 		}, 5000);
 	}
+}
+
+/**
+ * Display AI notes in a nice UI format
+ */
+function displayAINotes(aiNotes: AINotes, elements: SidebarElements): void {
+	// Clear previous content
+	elements.aiNotesContent.innerHTML = "";
+
+	// Show the AI notes container
+	elements.aiNotesContainer.classList.remove("hidden");
+
+	// Create content for each AI note section
+	if (aiNotes.title) {
+		createAINotesSection("Position", aiNotes.title, elements.aiNotesContent);
+	}
+
+	if (aiNotes.salary) {
+		createAINotesSection("Salary", aiNotes.salary, elements.aiNotesContent);
+	}
+
+	if (aiNotes.location) {
+		createAINotesSection("Location", aiNotes.location, elements.aiNotesContent);
+	}
+
+	if (aiNotes.technicalStack) {
+		createAINotesSection(
+			"Technical Stack",
+			aiNotes.technicalStack,
+			elements.aiNotesContent,
+		);
+	}
+
+	if (aiNotes.summary && aiNotes.summary.length > 0) {
+		const summaryContent = aiNotes.summary.join("\n• ");
+		createAINotesSection(
+			"Key Points",
+			`• ${summaryContent}`,
+			elements.aiNotesContent,
+		);
+	}
+
+	// Add any additional fields that may be in the AI notes
+	Object.entries(aiNotes).forEach(([key, value]) => {
+		if (
+			!["title", "salary", "location", "technicalStack", "summary"].includes(
+				key,
+			) &&
+			value
+		) {
+			const formattedKey = key
+				.replace(/([A-Z])/g, " $1")
+				.replace(/^./, (str) => str.toUpperCase());
+
+			let displayValue = value;
+			if (Array.isArray(value)) {
+				displayValue = value.join("\n• ");
+				if (displayValue) {
+					displayValue = `• ${displayValue}`;
+				}
+			}
+
+			createAINotesSection(formattedKey, displayValue, elements.aiNotesContent);
+		}
+	});
+}
+
+/**
+ * Create a section for AI notes
+ */
+function createAINotesSection(
+	title: string,
+	content: string,
+	container: HTMLElement,
+): void {
+	const sectionDiv = document.createElement("div");
+	sectionDiv.className = "ai-notes-section";
+
+	const titleElement = document.createElement("div");
+	titleElement.className = "ai-notes-section-title";
+	titleElement.textContent = title;
+
+	const contentElement = document.createElement("div");
+	contentElement.className = "ai-notes-section-content";
+	contentElement.textContent = content;
+
+	sectionDiv.appendChild(titleElement);
+	sectionDiv.appendChild(contentElement);
+	container.appendChild(sectionDiv);
 }

@@ -200,6 +200,62 @@ button:hover {
   border: 1px solid #f5c6cb;
 }
 
+/* AI Notes Container Styling */
+.ai-notes-container {
+  margin-top: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ai-notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f5f5f7;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.ai-notes-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.ai-notes-badge {
+  background-color: #037dde;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.ai-notes-content {
+  padding: 12px;
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ai-notes-section {
+  margin-bottom: 10px;
+}
+
+.ai-notes-section-title {
+  font-weight: 600;
+  color: #505965;
+  margin-bottom: 4px;
+}
+
+.ai-notes-section-content {
+  color: #333;
+  white-space: pre-line;
+}
+}
+
 #status-message.warning {
   background-color: #fff3cd;
   color: #856404;

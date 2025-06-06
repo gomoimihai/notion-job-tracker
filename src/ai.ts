@@ -6,7 +6,13 @@ import { JobAnalysisInput, JobAnalysisOutput } from "./types";
 const jobSchema = z.object({
 	title: z.string(),
 	salary: z.string(),
+	technicalStack: z.string(),
+	summary: z.array(z.string()),
+	location: z.string(),
 });
+
+// Export the inferred type from the jobSchema
+export type JobAnalysis = z.infer<typeof jobSchema>;
 
 export async function analyzeJobDescription(
 	jobData: JobAnalysisInput,
