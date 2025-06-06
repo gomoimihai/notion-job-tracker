@@ -1,8 +1,92 @@
 // sidebarInjector.ts
+import { JobInfo } from "./types/job";
+import { FillJobInfoMessage } from "./types/messages";
+import { LinkedInSelectorsMap, SidebarStateRef } from "./types/ui";
+import { UI } from "./types/constants";
+import { logError } from "./utils";
 
-// Function to inject the sidebar into the page
-function injectSidebar() {
-	// Create the sidebar iframe
+// Extract UI constants for easier access
+const SIDEBAR_WIDTH = UI.SIDEBAR.WIDTH;
+const TOGGLE_BUTTON_WIDTH = UI.SIDEBAR.TOGGLE_BUTTON_WIDTH;
+const TOGGLE_BUTTON_HEIGHT = UI.SIDEBAR.TOGGLE_BUTTON_HEIGHT;
+const STORAGE_KEY = UI.SIDEBAR.STORAGE_KEY;
+const URL_CHANGE_DETECTION_DELAY = UI.SIDEBAR.URL_CHANGE_DETECTION_DELAY;
+
+/**
+ * Helper: Create a message to send job info to the sidebar
+ */
+function createFillJobInfoMessage(jobInfo: JobInfo): FillJobInfoMessage {
+	return {
+		action: "fillJobInfo",
+		data: jobInfo,
+	};
+}
+
+/**
+ * Helper: Save the sidebar state to storage
+ */
+function saveSidebarState(isOpen: boolean) {
+	// Try chrome.storage.local first, fallback to localStorage
+	try {
+		chrome.storage.local.set({ sidebarOpen: isOpen });
+	} catch (error) {
+		logError("Failed to save sidebar state to chrome.storage", error);
+
+		try {
+			localStorage.setItem(STORAGE_KEY, String(isOpen));
+		} catch (localError) {
+			logError("Failed to save sidebar state to localStorage", localError);
+		}
+	}
+}
+
+/**
+ * Helper: Extract and send job info to the sidebar iframe
+ */
+async function extractAndSendJobInfo(iframe: HTMLIFrameElement) {
+	try {
+		const jobInfo = await extractJobInfo();
+		iframe.contentWindow?.postMessage(createFillJobInfoMessage(jobInfo), "*");
+	} catch (error) {
+		logError("Failed to extract or send job info", error);
+	}
+}
+
+/**
+ * Helper: Toggle sidebar visibility
+ */
+function toggleSidebar(
+	iframe: HTMLIFrameElement,
+	toggleButton: HTMLDivElement,
+	isOpen: boolean,
+): boolean {
+	const newState = !isOpen;
+
+	if (newState) {
+		// Open sidebar
+		iframe.style.width = SIDEBAR_WIDTH;
+		toggleButton.innerHTML = "<span>›</span>";
+		toggleButton.style.right = SIDEBAR_WIDTH;
+
+		// Extract and send job info
+		extractAndSendJobInfo(iframe);
+	} else {
+		// Close sidebar
+		iframe.style.width = "0";
+		toggleButton.innerHTML =
+			'<span style="transform: rotate(180deg); display: block;">›</span>';
+		toggleButton.style.right = "0";
+	}
+
+	// Save state
+	saveSidebarState(newState);
+	return newState;
+}
+
+/**
+ * Create and inject the sidebar iframe
+ */
+function createSidebarIframe(): HTMLIFrameElement {
 	const iframe = document.createElement("iframe");
 	iframe.src = chrome.runtime.getURL("sidebar.html");
 	iframe.id = "notion-job-tracker-sidebar";
@@ -17,40 +101,13 @@ function injectSidebar() {
 
 	// Add the iframe to the page
 	document.body.appendChild(iframe);
+	return iframe;
+}
 
-	// Store the current URL to detect changes
-	let lastUrl = window.location.href;
-
-	// Create a URL observer to detect AJAX navigation
-	const urlObserver = new MutationObserver(() => {
-		// Check if URL has changed
-		const currentUrl = window.location.href;
-		if (currentUrl !== lastUrl) {
-			console.log("URL changed from", lastUrl, "to", currentUrl);
-			lastUrl = currentUrl;
-
-			// Wait a moment for the page content to update
-			setTimeout(() => {
-				// Extract and send job info when URL changes
-				if (sidebarOpen) {
-					extractJobInfo().then((jobInfo) => {
-						iframe.contentWindow?.postMessage(
-							{
-								action: "fillJobInfo",
-								data: jobInfo,
-							},
-							"*",
-						);
-					});
-				}
-			}, 1000); // Small delay to ensure page content has updated
-		}
-	});
-
-	// Start observing URL changes by watching for changes in the body
-	urlObserver.observe(document, { subtree: true, childList: true });
-
-	// Create a toggle button that will be shown initially
+/**
+ * Create toggle button for the sidebar
+ */
+function createToggleButton(): HTMLDivElement {
 	const toggleButton = document.createElement("div");
 	toggleButton.id = "notion-job-tracker-toggle";
 	toggleButton.innerHTML =
@@ -59,8 +116,8 @@ function injectSidebar() {
 	toggleButton.style.right = "0";
 	toggleButton.style.top = "50%";
 	toggleButton.style.transform = "translateY(-50%)";
-	toggleButton.style.width = "30px";
-	toggleButton.style.height = "60px";
+	toggleButton.style.width = TOGGLE_BUTTON_WIDTH;
+	toggleButton.style.height = TOGGLE_BUTTON_HEIGHT;
 	toggleButton.style.backgroundColor = "#037dde";
 	toggleButton.style.color = "white";
 	toggleButton.style.display = "flex";
@@ -75,156 +132,162 @@ function injectSidebar() {
 
 	// Add the toggle button to the page
 	document.body.appendChild(toggleButton);
-	// Initialize sidebar state (closed by default)
-	let sidebarOpen = false;
+	return toggleButton;
+}
 
-	// Check if sidebar was open in previous session
-	try {
-		chrome.storage.local.get(["sidebarOpen"], (result) => {
-			if (result.sidebarOpen) {
-				sidebarOpen = true;
-				iframe.style.width = "380px";
-				toggleButton.innerHTML = "<span>›</span>";
-				toggleButton.style.right = "380px";
+/**
+ * Setup URL change observer
+ */
+function setupUrlChangeObserver(
+	iframe: HTMLIFrameElement,
+	sidebarOpenRef: SidebarStateRef,
+) {
+	let lastUrl = window.location.href;
 
-				// Extract and send job info when sidebar is initially open
-				extractJobInfo().then((jobInfo) => {
-					iframe.contentWindow?.postMessage(
-						{
-							action: "fillJobInfo",
-							data: jobInfo,
-						},
-						"*",
-					);
-				});
-			}
-		});
-	} catch (error) {
-		console.log("Failed to read sidebar state from chrome.storage:", error);
-		// Fallback to localStorage
-		try {
-			const savedState = localStorage.getItem(
-				"notion-job-tracker-sidebar-open",
-			);
-			if (savedState === "true") {
-				sidebarOpen = true;
-				iframe.style.width = "380px";
-				toggleButton.innerHTML = "<span>›</span>";
-				toggleButton.style.right = "380px";
+	const urlObserver = new MutationObserver(() => {
+		const currentUrl = window.location.href;
+		if (currentUrl !== lastUrl) {
+			console.log("URL changed from", lastUrl, "to", currentUrl);
+			lastUrl = currentUrl;
 
-				// Extract and send job info when sidebar is initially open
-				extractJobInfo().then((jobInfo) => {
-					iframe.contentWindow?.postMessage(
-						{
-							action: "fillJobInfo",
-							data: jobInfo,
-						},
-						"*",
-					);
-				});
-			}
-		} catch (localError) {
-			console.log(
-				"Failed to read sidebar state from localStorage:",
-				localError,
-			);
-		}
-	}
-	// Handle toggle button click
-	toggleButton.addEventListener("click", () => {
-		sidebarOpen = !sidebarOpen;
-
-		if (sidebarOpen) {
-			iframe.style.width = "380px";
-			toggleButton.innerHTML = "<span>›</span>";
-			toggleButton.style.right = "380px";
-
-			// Extract and send job info when sidebar is opened
-			extractJobInfo().then((jobInfo) => {
-				iframe.contentWindow?.postMessage(
-					{
-						action: "fillJobInfo",
-						data: jobInfo,
-					},
-					"*",
-				);
-			});
-		} else {
-			iframe.style.width = "0";
-			toggleButton.innerHTML =
-				'<span style="transform: rotate(180deg); display: block;">›</span>';
-			toggleButton.style.right = "0";
-		}
-
-		// Save sidebar state (with error handling)
-		try {
-			chrome.storage.local.set({ sidebarOpen });
-		} catch (error) {
-			console.log("Failed to save sidebar state to chrome.storage:", error);
-			// Fallback to localStorage
-			try {
-				localStorage.setItem(
-					"notion-job-tracker-sidebar-open",
-					String(sidebarOpen),
-				);
-			} catch (localError) {
-				console.log(
-					"Failed to save sidebar state to localStorage:",
-					localError,
-				);
-			}
+			// Wait a moment for the page content to update
+			setTimeout(() => {
+				if (sidebarOpenRef.value) {
+					extractAndSendJobInfo(iframe);
+				}
+			}, URL_CHANGE_DETECTION_DELAY);
 		}
 	});
 
+	// Start observing URL changes
+	urlObserver.observe(document, { subtree: true, childList: true });
+}
+
+/**
+ * Setup message listeners for the sidebar
+ */
+function setupMessageListeners(
+	iframe: HTMLIFrameElement,
+	toggleButton: HTMLDivElement,
+	sidebarOpenRef: SidebarStateRef,
+) {
 	// Listen for messages from the sidebar iframe
 	window.addEventListener("message", (event) => {
 		// Make sure the message is from our extension
 		if (event.origin === chrome.runtime.getURL("").slice(0, -1)) {
 			if (event.data.action === "toggleSidebar") {
-				toggleButton.click();
+				sidebarOpenRef.value = toggleSidebar(
+					iframe,
+					toggleButton,
+					sidebarOpenRef.value,
+				);
 			} else if (event.data.action === "extractJobInfo") {
-				// Handle request to extract job info
-				extractJobInfo().then((jobInfo) => {
-					iframe.contentWindow?.postMessage(
-						{
-							action: "fillJobInfo",
-							data: jobInfo,
-						},
-						"*",
-					);
-				});
+				extractAndSendJobInfo(iframe);
 			}
 		}
 	});
-	// Listen for messages from the extension
+
+	// Listen for messages from the extension background script
 	try {
 		chrome.runtime.onMessage.addListener((request) => {
 			if (request.action === "toggleSidebar") {
-				toggleButton.click();
+				sidebarOpenRef.value = toggleSidebar(
+					iframe,
+					toggleButton,
+					sidebarOpenRef.value,
+				);
 			} else if (request.action === "extractJobInfo") {
-				// Extract job info and respond
-				extractJobInfo().then((jobInfo) => {
-					iframe.contentWindow?.postMessage(
-						{
-							action: "fillJobInfo",
-							data: jobInfo,
-						},
-						"*",
-					);
-					return jobInfo;
-				});
+				extractAndSendJobInfo(iframe);
+				return true;
 			}
 			return true;
 		});
 	} catch (error) {
-		console.log("Failed to add chrome.runtime message listener:", error);
+		logError("Failed to add chrome.runtime message listener", error);
 	}
 }
 
-// Check if the page already has our sidebar
-if (!document.getElementById("notion-job-tracker-sidebar")) {
-	injectSidebar();
+/**
+ * Restore sidebar state from storage
+ */
+async function restoreSidebarState(
+	iframe: HTMLIFrameElement,
+	toggleButton: HTMLDivElement,
+	sidebarOpenRef: SidebarStateRef,
+): Promise<boolean> {
+	// First try using chrome.storage.local
+	try {
+		return new Promise((resolve) => {
+			chrome.storage.local.get([STORAGE_KEY.replace(/-/g, "")], (result) => {
+				if (result.sidebarOpen) {
+					sidebarOpenRef.value = true;
+					iframe.style.width = SIDEBAR_WIDTH;
+					toggleButton.innerHTML = "<span>›</span>";
+					toggleButton.style.right = SIDEBAR_WIDTH;
+					extractAndSendJobInfo(iframe);
+					resolve(true);
+				} else {
+					resolve(false);
+				}
+			});
+		});
+	} catch (error) {
+		logError("Failed to read sidebar state from chrome.storage", error);
+
+		// Fallback to localStorage
+		try {
+			const savedState = localStorage.getItem(STORAGE_KEY);
+			if (savedState === "true") {
+				sidebarOpenRef.value = true;
+				iframe.style.width = SIDEBAR_WIDTH;
+				toggleButton.innerHTML = "<span>›</span>";
+				toggleButton.style.right = SIDEBAR_WIDTH;
+				extractAndSendJobInfo(iframe);
+				return true;
+			}
+		} catch (localError) {
+			logError("Failed to read sidebar state from localStorage", localError);
+		}
+	}
+	return false;
 }
+
+/**
+ * Function to inject the sidebar into the page
+ */
+function injectSidebar() {
+	// Create UI elements
+	const iframe = createSidebarIframe();
+	const toggleButton = createToggleButton();
+	// Use an object for sidebarOpen to allow it to be passed by reference
+	const sidebarOpenRef: SidebarStateRef = { value: false };
+
+	// Setup URL change detection
+	setupUrlChangeObserver(iframe, sidebarOpenRef);
+
+	// Restore sidebar state from storage
+	restoreSidebarState(iframe, toggleButton, sidebarOpenRef);
+
+	// Setup message listeners
+	setupMessageListeners(iframe, toggleButton, sidebarOpenRef);
+
+	// Handle toggle button click
+	toggleButton.addEventListener("click", () => {
+		sidebarOpenRef.value = toggleSidebar(
+			iframe,
+			toggleButton,
+			sidebarOpenRef.value,
+		);
+	});
+}
+
+// Initialize the extension
+(function initialize() {
+	// Check if the page already has our sidebar
+	if (!document.getElementById("notion-job-tracker-sidebar")) {
+		injectSidebar();
+	}
+})();
 
 // Listen for content script messages
 try {
@@ -242,87 +305,24 @@ try {
 		}
 	});
 } catch (error) {
-	console.log(
-		"Failed to add chrome.runtime message listener for extractJobInfo:",
+	logError(
+		"Failed to add chrome.runtime message listener for extractJobInfo",
 		error,
 	);
 }
 
-// Define the job info interface
-interface JobInfo {
-	company: string;
-	position: string;
-	location: string;
-	salary: string;
-	description: string;
-	error?: string;
-}
-
-// Use the existing job extraction function
-// This is borrowed from the original contentScript.ts
-async function extractJobInfo(): Promise<JobInfo> {
-	const url = window.location.href;
-	let jobInfo: JobInfo = {
-		company: "",
-		position: "",
-		location: "",
-		salary: "",
-		description: "",
-	};
-
-	// Only extract from LinkedIn job pages
-	if (
-		url.includes("linkedin.com/jobs/") ||
-		url.includes("linkedin.com/job/") ||
-		(url.includes("linkedin.com") && url.includes("/view/"))
-	) {
-		console.log("LinkedIn job page detected, extracting information...");
-		try {
-			// Wait a short time to ensure the page is fully loaded after AJAX changes
-			await new Promise((resolve) => setTimeout(resolve, 300));
-			jobInfo = await extractFromLinkedIn();
-			console.log("Extracted job info:", jobInfo);
-		} catch (error) {
-			console.error("Error extracting job info:", error);
-		}
-	} else {
-		console.log("Not a LinkedIn job page, no information extracted");
-	}
-
-	return jobInfo;
-}
-
-// Extract job info from LinkedIn
-async function extractFromLinkedIn(): Promise<JobInfo> {
-	const jobInfo: JobInfo = {
-		company: "",
-		position: "",
-		location: "",
-		salary: "",
-		description: "",
-	};
-
-	// LinkedIn has different layouts, so we need to try different selectors
-
-	// Job title - try multiple possible selectors
-	const titleSelectors = [
+/**
+ * LinkedIn selectors for different job page elements
+ */
+const LinkedInSelectors: LinkedInSelectorsMap = {
+	title: [
 		".job-details-jobs-unified-top-card__job-title", // New job page layout
 		"h1.top-card-layout__title", // Another possible layout
 		"h1.job-title", // Another possible layout
 		"h2.t-24.t-bold.jobs-unified-top-card__job-title", // Additional selector for modern LinkedIn
 		".jobs-unified-top-card__job-title", // Generic class
-	];
-
-	for (const selector of titleSelectors) {
-		const titleElement = document.querySelector(selector);
-		if (titleElement?.textContent?.trim()) {
-			jobInfo.position = titleElement.textContent.trim();
-			break;
-		}
-	}
-
-	// Company name - try multiple possible selectors
-	const companySelectors = [
+	],
+	company: [
 		".topcard__org-name-link", // Standard company link
 		".job-details-jobs-unified-top-card__company-name", // New layout company name
 		'a[data-tracking-control-name="public_jobs_topcard-org-name"]', // Tracking attribute
@@ -330,18 +330,8 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		'a[data-tracking-control-name="public_jobs_topcard_company_name"]', // Another tracking attribute
 		"a[data-test-job-company-name]", // Data attribute selector
 		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__company-name", // Nested selector
-	];
-
-	for (const selector of companySelectors) {
-		const companyElement = document.querySelector(selector);
-		if (companyElement?.textContent?.trim()) {
-			jobInfo.company = companyElement.textContent.trim();
-			break;
-		}
-	}
-
-	// Location - try multiple possible selectors
-	const locationSelectors = [
+	],
+	location: [
 		".job-details-jobs-unified-top-card__bullet", // New job page layout
 		".job-details-jobs-unified-top-card__workplace-type", // New job page layout for remote
 		".topcard__flavor--bullet", // Older job page layout
@@ -350,47 +340,14 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".jobs-unified-top-card__bullet", // Generic bullet class
 		".jobs-unified-top-card__workplace-type", // Workplace type
 		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__bullet", // Nested structure
-	];
-
-	for (const selector of locationSelectors) {
-		const locationElement = document.querySelector(selector);
-		if (locationElement?.textContent?.trim()) {
-			jobInfo.location = locationElement.textContent.trim();
-			break;
-		}
-	}
-
-	// Salary - try multiple possible selectors
-	const salarySelectors = [
+	],
+	salary: [
 		".compensation__salary", // Standard salary
 		".job-details-jobs-unified-top-card__job-insight > .job-details-jobs-unified-top-card__job-insight-view-model-secondary", // New layout salary
 		".jobs-unified-top-card__job-insight:contains('$')", // Modern LinkedIn salary
 		".jobs-unified-top-card__job-insight-container .jobs-unified-top-card__job-insight:contains('$')", // Nested structure
-	];
-
-	for (const selector of salarySelectors) {
-		let salaryElement;
-		if (selector.includes(":contains")) {
-			// For custom selector with :contains
-			const textToFind = selector.match(/:"(.*?)"/)?.[1] || "$";
-			const elements = document.querySelectorAll(
-				selector.split(":contains")[0],
-			);
-			salaryElement = Array.from(elements).find((el) =>
-				el.textContent?.includes(textToFind),
-			);
-		} else {
-			salaryElement = document.querySelector(selector);
-		}
-
-		if (salaryElement?.textContent?.trim()) {
-			jobInfo.salary = salaryElement.textContent.trim();
-			break;
-		}
-	}
-
-	// Job description - try multiple possible selectors
-	const descriptionSelectors = [
+	],
+	description: [
 		".job-details-jobs-unified-top-card__description-container", // New job page description container
 		".show-more-less-html__markup", // Another description container
 		"#job-details", // Job details section
@@ -398,15 +355,136 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		".jobs-description", // Modern description container
 		".jobs-description-content", // Content within description
 		".jobs-box__html-content", // HTML content box
-	];
+	],
+};
 
-	for (const selector of descriptionSelectors) {
-		const descriptionElement = document.querySelector(selector);
-		if (descriptionElement?.textContent?.trim()) {
-			jobInfo.description = descriptionElement.textContent.trim();
-			break;
+/**
+ * Extract text content from the first matching selector
+ * @param selectors - Array of CSS selectors to try
+ * @param containsText - Optional text that the element should contain (for special cases)
+ * @returns The trimmed text content or empty string
+ */
+function extractContentFromSelectors(
+	selectors: string[],
+	containsText?: string,
+): string {
+	for (const selector of selectors) {
+		if (selector.includes(":contains") && containsText) {
+			// Handle custom contains selector
+			const baseSelector = selector.split(":contains")[0];
+			const elements = document.querySelectorAll(baseSelector);
+			const matchingEl = Array.from(elements).find((el) =>
+				el.textContent?.includes(containsText),
+			);
+
+			if (matchingEl?.textContent?.trim()) {
+				return matchingEl.textContent.trim();
+			}
+		} else {
+			// Standard selector
+			const element = document.querySelector(selector);
+			if (element?.textContent?.trim()) {
+				return element.textContent.trim();
+			}
 		}
+	}
+	return "";
+}
+
+/**
+ * Check if the current URL is a LinkedIn job page
+ */
+function isLinkedInJobPage(url: string): boolean {
+	return (
+		url.includes("linkedin.com/jobs/") ||
+		url.includes("linkedin.com/job/") ||
+		(url.includes("linkedin.com") && url.includes("/view/"))
+	);
+}
+
+/**
+ * Remove specific phrases from text content
+ */
+function cleanupDescription(text: string): string {
+	// Remove "about the job" if it exists, case-insensitive
+	const phraseToRemove = "about the job";
+	const regex = new RegExp(phraseToRemove, "gi");
+	return text.replace(regex, "").trim();
+}
+
+/**
+ * Extract job info from LinkedIn
+ */
+async function extractFromLinkedIn(): Promise<JobInfo> {
+	const jobInfo: JobInfo = {
+		company: "",
+		position: "",
+		location: "Remote", // Default to Remote
+		salary: "",
+		description: "",
+	};
+
+	// Extract position
+	jobInfo.position = extractContentFromSelectors(LinkedInSelectors.title);
+
+	// Extract company
+	jobInfo.company = extractContentFromSelectors(LinkedInSelectors.company);
+
+	// Extract location
+	const locationText = extractContentFromSelectors(LinkedInSelectors.location);
+	if (locationText) {
+		jobInfo.location = locationText;
+	}
+
+	// Extract salary - special case with contains selector
+	jobInfo.salary = extractContentFromSelectors(LinkedInSelectors.salary, "$");
+
+	// Extract description
+	const descriptionText = extractContentFromSelectors(
+		LinkedInSelectors.description,
+	);
+	if (descriptionText) {
+		jobInfo.description = cleanupDescription(descriptionText);
 	}
 
 	return jobInfo;
+}
+
+/**
+ * Main function to extract job information from the current page
+ */
+async function extractJobInfo(): Promise<JobInfo> {
+	const url = window.location.href;
+	const defaultJobInfo: JobInfo = {
+		company: "",
+		position: "",
+		location: "Remote", // Default to Remote
+		salary: "",
+		description: "",
+	};
+
+	// Only extract from LinkedIn job pages for now
+	if (isLinkedInJobPage(url)) {
+		console.log("LinkedIn job page detected, extracting information...");
+		try {
+			// Wait a short time to ensure the page is fully loaded after AJAX changes
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			const jobInfo = await extractFromLinkedIn();
+			console.log("Extracted job info:", jobInfo);
+			return jobInfo;
+		} catch (error) {
+			logError("Error extracting job info", error);
+			// Return default info with error flag
+			return {
+				...defaultJobInfo,
+				error:
+					error instanceof Error
+						? error.message
+						: "Unknown error extracting job info",
+			};
+		}
+	} else {
+		console.log("Not a supported job page, no information extracted");
+		return defaultJobInfo;
+	}
 }

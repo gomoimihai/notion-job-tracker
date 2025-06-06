@@ -1,10 +1,6 @@
 import { LMStudioClient } from "@lmstudio/sdk";
 import { z } from "zod";
-
-// Define the job data interface
-interface JobData {
-	description: string;
-}
+import { JobAnalysisInput, JobAnalysisOutput } from "./types/ai";
 
 // A zod schema for job information
 const jobSchema = z.object({
@@ -12,7 +8,9 @@ const jobSchema = z.object({
 	salary: z.string(),
 });
 
-export async function analyzeJobDescription(jobData: JobData) {
+export async function analyzeJobDescription(
+	jobData: JobAnalysisInput,
+): Promise<JobAnalysisOutput> {
 	const client = new LMStudioClient();
 	const model = await client.llm.model("deepseek-r1-distill-llama-8b");
 	const modelResult = await model.respond(jobData.description, {
