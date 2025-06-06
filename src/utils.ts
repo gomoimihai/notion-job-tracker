@@ -2,12 +2,8 @@
  * Common utility functions for the application
  */
 
-import {
-	StatusMessageParams,
-	FormStateParams,
-	StatusMessageType,
-} from "./types/utils";
-import { ANIMATIONS } from "./types/constants";
+import { StatusMessageParams, FormStateParams } from "./types";
+import { ANIMATIONS } from "./constants";
 
 /**
  * Shows a status message with optional auto-clearing

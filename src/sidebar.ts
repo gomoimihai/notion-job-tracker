@@ -1,14 +1,10 @@
 // sidebar.ts
-import { JobData, ExtractJobResponse } from "./types/job";
-import { AddJobResponse } from "./types/messages";
-import { SidebarElements } from "./types/ui";
-import { StoredSettings } from "./types/storage";
-import { StatusMessageType } from "./types/utils";
 import {
-	toggleFormState as utilToggleFormState,
-	showStatusMessage as utilShowStatusMessage,
-	logError,
-} from "./utils";
+	JobData,
+	ExtractJobResponse,
+	AddJobResponse,
+	SidebarElements,
+} from "./types";
 
 document.addEventListener("DOMContentLoaded", () => {
 	// Initialize element references
@@ -141,27 +137,54 @@ function fillFormWithJobInfo(
 	elements: SidebarElements,
 ): void {
 	if (!jobInfo || jobInfo.error) return;
+	chrome.storage.sync.get(["enhanceAi"], (result) => {
+		// Send message to background script to add job to Notion
+		chrome.runtime.sendMessage(
+			{
+				action: "enhanceWithAi",
+				data: {
+					jobData: jobInfo,
+					enhanceAi: result.enhanceAi, // Pass enhance AI setting to background
+				},
+			},
+			(response: AddJobResponse) => {
+				if (chrome.runtime.lastError) {
+					console.error("Error sending message:", chrome.runtime.lastError);
+					showStatusMessage(
+						`Error: ${chrome.runtime.lastError.message}`,
+						"error",
+						elements,
+					);
+					return;
+				}
+				console.log("AI enhancement response:", response);
+				// Fill in the form with the extracted job info
+				if (jobInfo.company) {
+					elements.companyInput.value = jobInfo.company;
+				}
 
-	// Fill in the form with the extracted job info
-	if (jobInfo.company) {
-		elements.companyInput.value = jobInfo.company;
-	}
+				if (jobInfo.position) {
+					elements.positionInput.value = jobInfo.position;
+				}
 
-	if (jobInfo.position) {
-		elements.positionInput.value = jobInfo.position;
-	}
+				if (jobInfo.location) {
+					elements.locationInput.value = jobInfo.location;
+				}
 
-	if (jobInfo.location) {
-		elements.locationInput.value = jobInfo.location;
-	}
+				if (jobInfo.salary) {
+					elements.salaryInput.value = jobInfo.salary;
+				}
 
-	if (jobInfo.salary) {
-		elements.salaryInput.value = jobInfo.salary;
-	}
+				if (jobInfo.description) {
+					elements.descriptionTextarea.value = jobInfo.description;
+				}
 
-	if (jobInfo.description) {
-		elements.descriptionTextarea.value = jobInfo.description;
-	}
+				if (jobInfo.url) {
+					elements.jobUrlInput.value = jobInfo.url;
+				}
+			},
+		);
+	});
 }
 
 /**

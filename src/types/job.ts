@@ -12,6 +12,7 @@ export interface JobInfo {
     salary: string;
     description: string;
     error?: string;
+    url?: string; // Optional URL for the job listing
 }
 
 /**
@@ -37,5 +38,6 @@ export interface ExtractJobResponse {
     location?: string;
     salary?: string;
     description?: string;
+    url?: string;
     error?: string;
 }

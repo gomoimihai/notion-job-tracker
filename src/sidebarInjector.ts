@@ -1,8 +1,11 @@
 // sidebarInjector.ts
-import { JobInfo } from "./types/job";
-import { FillJobInfoMessage } from "./types/messages";
-import { LinkedInSelectorsMap, SidebarStateRef } from "./types/ui";
-import { UI } from "./types/constants";
+import {
+	JobInfo,
+	LinkedInSelectorsMap,
+	SidebarStateRef,
+	FillJobInfoMessage,
+} from "./types";
+import { LinkedInSelectors, UI } from "./constants";
 import { logError } from "./utils";
 
 // Extract UI constants for easier access
@@ -312,53 +315,6 @@ try {
 }
 
 /**
- * LinkedIn selectors for different job page elements
- */
-const LinkedInSelectors: LinkedInSelectorsMap = {
-	title: [
-		".job-details-jobs-unified-top-card__job-title", // New job page layout
-		"h1.top-card-layout__title", // Another possible layout
-		"h1.job-title", // Another possible layout
-		"h2.t-24.t-bold.jobs-unified-top-card__job-title", // Additional selector for modern LinkedIn
-		".jobs-unified-top-card__job-title", // Generic class
-	],
-	company: [
-		".topcard__org-name-link", // Standard company link
-		".job-details-jobs-unified-top-card__company-name", // New layout company name
-		'a[data-tracking-control-name="public_jobs_topcard-org-name"]', // Tracking attribute
-		".jobs-unified-top-card__company-name", // Another variation
-		'a[data-tracking-control-name="public_jobs_topcard_company_name"]', // Another tracking attribute
-		"a[data-test-job-company-name]", // Data attribute selector
-		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__company-name", // Nested selector
-	],
-	location: [
-		".job-details-jobs-unified-top-card__bullet", // New job page layout
-		".job-details-jobs-unified-top-card__workplace-type", // New job page layout for remote
-		".topcard__flavor--bullet", // Older job page layout
-		".job-details-jobs-unified-top-card__company-name + span", // Sibling of company name
-		"span.location", // Standard location span
-		".jobs-unified-top-card__bullet", // Generic bullet class
-		".jobs-unified-top-card__workplace-type", // Workplace type
-		".jobs-unified-top-card__subtitle-primary-grouping .jobs-unified-top-card__bullet", // Nested structure
-	],
-	salary: [
-		".compensation__salary", // Standard salary
-		".job-details-jobs-unified-top-card__job-insight > .job-details-jobs-unified-top-card__job-insight-view-model-secondary", // New layout salary
-		".jobs-unified-top-card__job-insight:contains('$')", // Modern LinkedIn salary
-		".jobs-unified-top-card__job-insight-container .jobs-unified-top-card__job-insight:contains('$')", // Nested structure
-	],
-	description: [
-		".job-details-jobs-unified-top-card__description-container", // New job page description container
-		".show-more-less-html__markup", // Another description container
-		"#job-details", // Job details section
-		".description__text", // Older description text layout
-		".jobs-description", // Modern description container
-		".jobs-description-content", // Content within description
-		".jobs-box__html-content", // HTML content box
-	],
-};
-
-/**
  * Extract text content from the first matching selector
  * @param selectors - Array of CSS selectors to try
  * @param containsText - Optional text that the element should contain (for special cases)
@@ -422,6 +378,7 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		location: "Remote", // Default to Remote
 		salary: "",
 		description: "",
+		url: "",
 	};
 
 	// Extract position
@@ -447,6 +404,16 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		jobInfo.description = cleanupDescription(descriptionText);
 	}
 
+	const url = window.location.href;
+	if (url) {
+		const match = url.match(/[?&]currentJobId=(\d+)/);
+		if (match && match[1]) {
+			jobInfo.url = `https://www.linkedin.com/jobs/view/${match[1]}`; // Set to currentJobId only
+		} else {
+			jobInfo.url = url; // Fallback to full URL if not found
+		}
+	}
+
 	return jobInfo;
 }
 
@@ -461,6 +428,7 @@ async function extractJobInfo(): Promise<JobInfo> {
 		location: "Remote", // Default to Remote
 		salary: "",
 		description: "",
+		url: url,
 	};
 
 	// Only extract from LinkedIn job pages for now

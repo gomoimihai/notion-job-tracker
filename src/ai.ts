@@ -1,6 +1,6 @@
 import { LMStudioClient } from "@lmstudio/sdk";
 import { z } from "zod";
-import { JobAnalysisInput, JobAnalysisOutput } from "./types/ai";
+import { JobAnalysisInput, JobAnalysisOutput } from "./types";
 
 // A zod schema for job information
 const jobSchema = z.object({

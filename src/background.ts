@@ -1,9 +1,13 @@
 // background.ts
 import { analyzeJobDescription } from "./ai"; // Import the AI function
-import { JobData } from "./types/job";
-import { AddJobRequest, AddJobResponse } from "./types/messages";
-import { NotionDbSchema, AddJobToNotionParams } from "./types/notion";
-import { JobAnalysisInput, JobAnalysisOutput } from "./types/ai";
+import {
+	AddJobRequest,
+	AddJobResponse,
+	NotionDbSchema,
+	AddJobToNotionParams,
+	JobAnalysisInput,
+	JobAnalysisOutput,
+} from "./types";
 
 // Handle browser action click (toolbar button)
 chrome.action.onClicked.addListener((tab) => {
@@ -12,41 +16,46 @@ chrome.action.onClicked.addListener((tab) => {
 	}
 });
 
-// Prevent duplicate submissions
-let isSubmitting: boolean = false;
-
-import { STORAGE } from "./types/constants";
-
-// Store recently submitted job URLs to prevent duplicates
-const recentlySubmittedJobs: Set<string> = new Set();
-const MAX_RECENT_JOBS: number = STORAGE.MAX_RECENT_JOBS; // Remember the last 50 jobs
-
-// Function to check if a job URL was recently submitted
-function wasRecentlySubmitted(jobUrl: string): boolean {
-	return recentlySubmittedJobs.has(jobUrl);
+// Cache for database schemas
+interface SchemaCache {
+	[key: string]: {
+		schema: NotionDbSchema;
+		timestamp: number;
+	};
 }
 
-// Function to add a job URL to the recently submitted list
-function addToRecentlySubmitted(jobUrl: string): void {
-	// Add the current URL
-	recentlySubmittedJobs.add(jobUrl);
-
-	// If we have too many entries, remove the oldest ones
-	// (This is a simplified approach since we don't track order properly in a Set)
-	if (recentlySubmittedJobs.size > MAX_RECENT_JOBS) {
-		// Convert to array, remove the first entry, and convert back to Set
-		const jobArray = Array.from(recentlySubmittedJobs);
-		recentlySubmittedJobs.clear();
-		jobArray.slice(1).forEach((url) => recentlySubmittedJobs.add(url));
-	}
-}
+const schemaCache: SchemaCache = {};
+const SCHEMA_CACHE_LIFETIME = 60 * 60 * 1000; // 1 hour in milliseconds
 
 chrome.runtime.onMessage.addListener(
 	(request: AddJobRequest, sender, sendResponse) => {
-		if (request.action === "addJobToNotion") {
-			const jobUrl = request.data.jobData.jobUrl;
-			const enhanceAi = request.data.enhanceAi; // Get enhanceAi flag
+		const jobUrl = request.data.jobData.jobUrl;
+		const enhanceAi = request.data.enhanceAi; // Get enhanceAi flag
+		if (request.action === "enhanceWithAi") {
+			let jobDataForNotion = { ...request.data.jobData };
+			if (enhanceAi && jobDataForNotion.description) {
+				try {
+					console.log("Enhancing notes with AI...");
 
+					analyzeJobDescription({
+						description: jobDataForNotion.description,
+					} as JobAnalysisInput)
+						.then((result) => {
+							sendResponse(result);
+						})
+						.catch((error) => {
+							sendResponse({
+								success: false,
+								error: error.message || "Error enhancing with AI",
+							});
+						});
+				} catch (aiError) {
+					console.error("Error during AI analysis:", aiError);
+				}
+			}
+			return true;
+		}
+		if (request.action === "addJobToNotion") {
 			// Check if this job was recently submitted
 			if (wasRecentlySubmitted(jobUrl) && !request.data.forceSubmit) {
 				console.log(
@@ -86,33 +95,6 @@ chrome.runtime.onMessage.addListener(
 			const processAndAddJob = async () => {
 				let jobDataForNotion = { ...request.data.jobData };
 
-				if (enhanceAi && jobDataForNotion.description) {
-					try {
-						console.log("Enhancing notes with AI...");
-						const aiAnalysis: JobAnalysisOutput = await analyzeJobDescription({
-							description: jobDataForNotion.description,
-						} as JobAnalysisInput);
-						// Format the AI analysis into notes
-						let aiNotes = "";
-						if (aiAnalysis) {
-							// Create a more structured, readable format for the AI analysis
-							aiNotes = `## AI Analysis\n\nSuggested Title: ${aiAnalysis.title}\n\nEstimated Salary Range: ${aiAnalysis.salary}`;
-						}
-
-						// Append AI notes to existing notes or set as new notes
-						if (jobDataForNotion.notes) {
-							jobDataForNotion.notes += `\\n\\n${aiNotes}`;
-						} else {
-							jobDataForNotion.notes = aiNotes;
-						}
-						console.log("AI enhanced notes:", jobDataForNotion.notes);
-					} catch (aiError) {
-						console.error("Error during AI analysis:", aiError);
-						// Decide how to handle AI errors: proceed without AI notes, or send error back
-						// For now, proceeding without AI enhancement on error.
-					}
-				}
-
 				return addJobToNotion({
 					notionToken: request.data.notionToken,
 					databaseId: request.data.databaseId,
@@ -147,7 +129,33 @@ chrome.runtime.onMessage.addListener(
 	},
 );
 
-// Using NotionDbSchema imported from types/notion
+// Prevent duplicate submissions
+let isSubmitting: boolean = false;
+
+import { STORAGE } from "./constants";
+
+// Store recently submitted job URLs to prevent duplicates
+const recentlySubmittedJobs: Set<string> = new Set();
+
+// Function to check if a job URL was recently submitted
+function wasRecentlySubmitted(jobUrl: string): boolean {
+	return recentlySubmittedJobs.has(jobUrl);
+}
+
+// Function to add a job URL to the recently submitted list
+function addToRecentlySubmitted(jobUrl: string): void {
+	// Add the current URL
+	recentlySubmittedJobs.add(jobUrl);
+
+	// If we have too many entries, remove the oldest ones
+	// (This is a simplified approach since we don't track order properly in a Set)
+	if (recentlySubmittedJobs.size > STORAGE.MAX_RECENT_JOBS) {
+		// Convert to array, remove the first entry, and convert back to Set
+		const jobArray = Array.from(recentlySubmittedJobs);
+		recentlySubmittedJobs.clear();
+		jobArray.slice(1).forEach((url) => recentlySubmittedJobs.add(url));
+	}
+}
 
 // Function to add a job to the Notion database
 async function addJobToNotion(
@@ -159,28 +167,53 @@ async function addJobToNotion(
 	const formattedDate = new Date().toISOString().split("T")[0];
 
 	try {
-		// First, let's fetch the database structure to understand its schema
-		const dbResponse = await fetch(
-			`https://api.notion.com/v1/databases/${databaseId}`,
-			{
-				method: "GET",
-				headers: {
-					Authorization: `Bearer ${notionToken}`,
-					"Content-Type": "application/json",
-					"Notion-Version": "2022-06-28",
-				},
-			},
-		);
+		// Check if we have a valid cached schema
+		let dbSchema: NotionDbSchema;
+		const cacheKey = `${databaseId}`;
+		const currentTime = Date.now();
 
-		if (!dbResponse.ok) {
-			const error = await dbResponse.json();
-			throw new Error(
-				error.message || `Error fetching database: ${dbResponse.status}`,
+		if (
+			schemaCache[cacheKey] &&
+			currentTime - schemaCache[cacheKey].timestamp < SCHEMA_CACHE_LIFETIME
+		) {
+			console.log("Using cached database schema");
+			dbSchema = schemaCache[cacheKey].schema;
+		} else {
+			console.log("Fetching fresh database schema");
+			// Fetch the database structure to understand its schema
+			const dbResponse = await fetch(
+				`https://api.notion.com/v1/databases/${databaseId}`,
+				{
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${notionToken}`,
+						"Content-Type": "application/json",
+						"Notion-Version": "2022-06-28",
+					},
+				},
 			);
+
+			if (!dbResponse.ok) {
+				const error = await dbResponse.json();
+				throw new Error(
+					error.message || `Error fetching database: ${dbResponse.status}`,
+				);
+			}
+
+			dbSchema = (await dbResponse.json()) as NotionDbSchema;
+
+			// Store in cache
+			schemaCache[cacheKey] = {
+				schema: dbSchema,
+				timestamp: currentTime,
+			};
 		}
 
-		const dbSchema = (await dbResponse.json()) as NotionDbSchema;
-		console.log("Database schema:", dbSchema);
+		// Cache the schema with the current timestamp
+		schemaCache[databaseId] = {
+			schema: dbSchema,
+			timestamp: Date.now(),
+		};
 
 		// Helper function to find the correct property name in the database
 		function findPropertyName(searchName: string): string {
