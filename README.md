@@ -1,6 +1,6 @@
 # Notion Job Tracker Chrome Extension
 
-A Chrome extension that helps you save job listings to a Notion job tracker database.
+A Chrome extension that helps you save job listings to a Notion job tracker database with AI-powered analysis.
 
 ## Features
 
@@ -9,9 +9,16 @@ A Chrome extension that helps you save job listings to a Notion job tracker data
   - Indeed
   - Glassdoor
   - Google Jobs
+- AI-powered job analysis that provides:
+  - Job title refinement
+  - Salary information extraction
+  - Technical stack identification
+  - Key points summarization
+  - Location details
+- Beautiful UI for displaying AI analysis notes
 - Save job details directly to your Notion job tracker database
 - Track application status and add notes
-- Simple and intuitive user interface
+- Convenient sidebar interface for easy access while browsing
 
 ## Setup Instructions
 
@@ -42,7 +49,7 @@ Create a database in Notion with the following properties:
   - Not Interested
 - Salary (Text)
 - Description (Text) - For storing the full job description
-- Notes (Text)
+- Notes (Text) - For storing your personal notes and AI analysis
 
 ### 3. Share Your Database with the Integration
 
@@ -63,24 +70,38 @@ Create a database in Notion with the following properties:
 1. Download the extension files or clone this repository
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable "Developer mode" in the top right corner
-4. Click "Load unpacked" and select the folder containing the extension files
-5. Click on the extension icon in your browser toolbar
-6. Go to the settings page and enter your Notion API token and database ID
-7. Save your settings
+4. Click "Load unpacked" and select the `dist` folder containing the extension files
+5. Navigate to a job listing page and click the extension icon to open the sidebar
+6. Go to the settings by clicking the settings button
+7. Enter your Notion API token and database ID
+8. Enable or disable the AI enhancement feature according to your preference
+9. Save your settings
 
 ## How to Use
 
-1. Navigate to a job listing page on a supported site
-2. Click the extension icon in your browser toolbar
-3. The form will be auto-filled with job details extracted from the page:
-   - For LinkedIn, the extension can extract from various page layouts and formats
-   - Automatically pulls company name, position title, location, salary, and full job description
-   - Extracts job descriptions using specific selectors like `jobs-description__container` for LinkedIn
-   - Extracts salary information from job descriptions when not explicitly listed
-4. Review and edit the information as needed
-5. Select the appropriate status for the job
-6. Add any notes about the position
-7. Click "Save to Notion" to add the job to your database
+1. Navigate to a job listing page on a supported site (currently LinkedIn)
+2. The sidebar will automatically appear on the right side of the page
+   - You can collapse it by clicking the toggle button
+3. The form will be auto-filled with job details extracted from the page
+4. If AI enhancement is enabled, the extension will:
+   - Analyze the job description
+   - Extract key information like technical requirements
+   - Provide a summary of important points
+   - Display AI analysis in a clean, formatted UI below the notes field
+5. Review and edit the information as needed
+6. Select the appropriate status for the job
+7. Add any personal notes about the position
+8. Click "Save to Notion" to add the job to your database
+
+### AI Analysis Features
+
+The AI enhancement (powered by LM Studio) provides:
+
+- Technical stack identification: Lists programming languages and technologies required
+- Key points summarization: Extracts the most important aspects of the job
+- Salary information: Attempts to extract or estimate salary information even when not explicitly listed
+- Location details: Identifies remote, hybrid, or on-site information
+- Position title refinement: Suggests more accurate or standardized job titles
 
 ## Privacy
 
@@ -132,24 +153,38 @@ Then run the "Open Chrome with Extension" task in VS Code.
 ```
 notion-job-tracker/
 ├── src/                   # Source files
-│   ├── background.js      # Background script for API communication
-│   ├── content.js         # Content script for extracting job data
-│   └── popup.js           # Popup functionality
+│   ├── background.ts      # Background script for API communication
+│   ├── sidebar.ts         # Sidebar UI functionality
+│   ├── sidebarInjector.ts # Script to inject the sidebar into pages
+│   ├── ai.ts              # AI analysis functionality
+│   ├── utils.ts           # Utility functions
+│   ├── constants.ts       # Constants and configuration
+│   └── types/             # TypeScript type definitions
+├── public/                # Static files
+│   ├── manifest.json      # Chrome extension manifest file
+│   ├── sidebar.html       # Sidebar interface
+│   ├── sidebar.css        # CSS styles for sidebar
+│   └── icons/             # Extension icons
 ├── dist/                  # Build output (generated by webpack)
-├── popup.html             # Extension popup interface
-├── styles.css             # CSS styles for popup
-├── manifest.json          # Chrome extension manifest file
-├── webpack.config.js      # Webpack configuration
+├── config/                # Build configuration
+│   ├── webpack.common.js  # Common webpack configuration
+│   ├── webpack.config.js  # Main webpack configuration
+│   └── paths.js          # Path configurations
+├── tsconfig.json          # TypeScript configuration
 └── package.json           # npm package configuration
-└── icons/                 # Extension icons
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
 ```
 
-### Adding Support for Additional Job Sites
+### AI Integration
 
-To add support for additional job sites, edit the `content.js` file and add a new extraction function following the existing patterns.
+The extension uses the LM Studio SDK to connect to a local AI model for job description analysis. The AI integration:
+
+1. Parses job descriptions using structured extraction
+2. Returns analysis in a standardized JSON format
+3. Displays results in a user-friendly format in the sidebar
+
+To modify the AI analysis:
+- Edit the schema in `src/ai.ts` to extract different or additional information
+- Modify the `displayAINotes` function in `sidebar.ts` to change how AI notes are displayed
 
 ## Troubleshooting
 
@@ -184,6 +219,40 @@ This happens when the data sent doesn't match the property types in your databas
 
 Notion has a limit of 2000 characters for rich text properties. If job descriptions are too long, the extension will automatically truncate them.
 
+### AI Feature Issues
+
+#### AI Analysis Not Working
+
+If the AI analysis feature is not working:
+
+1. Make sure the "Enhance with AI" option is enabled in the settings
+2. Check that you have LM Studio running locally on port 41343
+3. Ensure you're using a compatible model (the extension uses deepseek-r1-distill-llama-8b by default)
+4. Check the browser console for any error messages related to AI connectivity
+
+#### AI Analysis Not Accurate
+
+The AI analysis quality depends on:
+- The model being used
+- The quality and completeness of the job description
+- The structure of the job posting
+
+You can always edit the notes field manually before saving to Notion.
+
 ## License
 
 This project is licensed under the MIT License.
+
+## Upcoming Features
+
+Based on our roadmap, we plan to implement:
+
+- Dedicated configuration page with customizable defaults and templates
+- Support for additional job sites beyond LinkedIn
+- Batch processing to save multiple jobs from search results
+- Enhanced job application tracking with reminders and follow-up dates
+- Resume matching to highlight your matching skills and qualifications
+- Dark mode and keyboard shortcuts
+- Support for custom Notion database schemas
+
+Feel free to contribute to the project by implementing any of these features or suggesting new ones!
