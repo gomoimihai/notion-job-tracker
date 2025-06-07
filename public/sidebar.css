@@ -371,6 +371,15 @@ button:hover {
   vertical-align: middle;
 }
 
+.applied-button {
+  background-color: #28a745 !important; /* Green color for "Applied" */
+  transition: background-color 0.3s ease;
+}
+
+.applied-button:hover {
+  background-color: #218838 !important;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

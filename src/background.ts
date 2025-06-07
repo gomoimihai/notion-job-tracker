@@ -108,6 +108,35 @@ chrome.runtime.onMessage.addListener((request: any, sender, sendResponse) => {
 			});
 		}
 		return true;
+	} else if (request.action === "updateJobStatus") {
+		// Extract request parameters
+		const { notionToken, databaseId, externalId, status } = request.data;
+
+		// Validate parameters
+		if (!notionToken || !databaseId || !externalId || !status) {
+			sendResponse({
+				success: false,
+				error: "Missing required parameters for updating job status",
+			});
+			return true;
+		}
+
+		// Call the updateJobStatus function
+		updateJobStatus(notionToken, databaseId, externalId, status)
+			.then((result) => {
+				console.log("Job status update result:", result);
+				sendResponse(result);
+			})
+			.catch((error) => {
+				console.error("Error updating job status:", error);
+				sendResponse({
+					success: false,
+					error: error.message || "Error updating job status",
+				});
+			});
+
+		// Return true to indicate an asynchronous response
+		return true;
 	} else if (request.action === "addJobToNotion") {
 		const addJobRequest = request as AddJobRequest;
 		const jobUrl = addJobRequest.data.jobData.jobUrl;
@@ -599,5 +628,170 @@ async function addJobToNotion(
 			console.error("Response status:", error.response.status);
 		}
 		throw error;
+	}
+}
+
+// Function to update a job's status in Notion
+async function updateJobStatus(
+	notionToken: string,
+	databaseId: string,
+	externalId: string,
+	status: string,
+): Promise<AddJobResponse> {
+	try {
+		console.log(
+			`Updating job with External ID ${externalId} to status ${status}`,
+		);
+
+		// First, fetch the database schema to get the correct property name for ExternalID
+		let dbSchema: NotionDbSchema;
+		const cacheKey = `${databaseId}`;
+		const currentTime = Date.now();
+
+		// Try to use cached schema if available
+		if (
+			schemaCache[cacheKey] &&
+			currentTime - schemaCache[cacheKey].timestamp < SCHEMA_CACHE_LIFETIME
+		) {
+			dbSchema = schemaCache[cacheKey].schema;
+		} else {
+			// Fetch the database structure
+			const dbResponse = await fetch(
+				`https://api.notion.com/v1/databases/${databaseId}`,
+				{
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${notionToken}`,
+						"Content-Type": "application/json",
+						"Notion-Version": "2022-06-28",
+					},
+				},
+			);
+
+			if (!dbResponse.ok) {
+				const error = await dbResponse.json();
+				console.error("Error fetching database schema:", error);
+				return {
+					success: false,
+					error: error.message || "Error fetching database schema",
+				};
+			}
+
+			dbSchema = (await dbResponse.json()) as NotionDbSchema;
+			schemaCache[cacheKey] = {
+				schema: dbSchema,
+				timestamp: currentTime,
+			};
+		}
+
+		// Helper function to find the correct property name in the database
+		function findPropertyName(searchName: string): string {
+			// Try direct match first
+			if (dbSchema.properties[searchName]) {
+				return searchName;
+			}
+
+			// Try case-insensitive match
+			const lowerSearchName = searchName.toLowerCase();
+			for (const key in dbSchema.properties) {
+				if (key.toLowerCase() === lowerSearchName) {
+					return key; // Return the actual property name with correct case
+				}
+			}
+
+			// Return original if no match found
+			return searchName;
+		}
+
+		// Get the correct property name for ExternalID
+		const externalIdPropName = findPropertyName("ExternalID");
+
+		// Use Notion's query API to search for the external ID
+		const searchResponse = await fetch(
+			`https://api.notion.com/v1/databases/${databaseId}/query`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${notionToken}`,
+					"Content-Type": "application/json",
+					"Notion-Version": "2022-06-28",
+				},
+				body: JSON.stringify({
+					filter: {
+						property: externalIdPropName,
+						rich_text: {
+							equals: externalId,
+						},
+					},
+				}),
+			},
+		);
+
+		if (!searchResponse.ok) {
+			const error = await searchResponse.json();
+			console.error("Error searching for job:", error);
+			return {
+				success: false,
+				error: error.message || "Error searching for job",
+			};
+		}
+
+		const searchResult = await searchResponse.json();
+
+		if (searchResult.results.length === 0) {
+			return {
+				success: false,
+				error: `No job found with External ID ${externalId}`,
+			};
+		}
+
+		// Get the page ID from the search results
+		const pageId = searchResult.results[0].id;
+
+		// Get the status property name
+		const statusPropName = findPropertyName("Status");
+
+		// Update the status
+		const updateResponse = await fetch(
+			`https://api.notion.com/v1/pages/${pageId}`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: `Bearer ${notionToken}`,
+					"Content-Type": "application/json",
+					"Notion-Version": "2022-06-28",
+				},
+				body: JSON.stringify({
+					properties: {
+						[statusPropName]: {
+							select: {
+								name: status,
+							},
+						},
+					},
+				}),
+			},
+		);
+
+		if (!updateResponse.ok) {
+			const error = await updateResponse.json();
+			console.error("Error updating job status:", error);
+			return {
+				success: false,
+				error: error.message || "Error updating job status",
+			};
+		}
+
+		const updateResult = await updateResponse.json();
+		return {
+			success: true,
+			data: updateResult,
+		};
+	} catch (error: any) {
+		console.error("Error updating job status in Notion:", error);
+		return {
+			success: false,
+			error: error.message || "Unknown error updating job status",
+		};
 	}
 }

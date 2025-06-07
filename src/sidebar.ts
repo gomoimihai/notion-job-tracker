@@ -481,10 +481,37 @@ function handleNotionResponse(
 			displayAINotes(response.data, elements);
 		}
 
-		// Reset form after successful submission
-		elements.jobForm.reset();
+		// Store the job ID for the "I also applied" button
+		if (jobData.id) {
+			// Replace the save button with "I also applied" button
+			const saveButton = document.getElementById(
+				"save-job",
+			) as HTMLButtonElement;
+			if (saveButton) {
+				saveButton.textContent = "I Also Applied";
+				saveButton.removeAttribute("type"); // Remove form submit type
+				saveButton.setAttribute("type", "button"); // Make it a regular button
+				saveButton.classList.add("applied-button");
 
-		// Hide the AI notes container after form reset
+				// Remove existing event listeners by cloning the button
+				const newButton = saveButton.cloneNode(true) as HTMLButtonElement;
+				saveButton.parentNode?.replaceChild(newButton, saveButton);
+
+				// Add new event listener for the "I also applied" action
+				newButton.addEventListener("click", () => {
+					handleJobApplied(jobData.id, elements);
+				});
+
+				// Store the job ID in a data attribute
+				newButton.dataset.jobId = jobData.id;
+			}
+		}
+
+		// Reset form fields visually but don't clear them completely
+		// We intentionally don't call elements.jobForm.reset() here
+		elements.statusSelect.value = "Applied"; // Pre-select "Applied" status
+
+		// Hide the AI notes container
 		setTimeout(() => {
 			elements.aiNotesContainer.classList.add("hidden");
 		}, 100);
@@ -802,4 +829,88 @@ function downloadCoverLetter(elements: SidebarElements): void {
 	}, 100);
 
 	showStatusMessage("Cover letter downloaded", "success", elements);
+}
+
+/**
+ * Handle "I also applied" button click to update job status
+ */
+function handleJobApplied(jobId: string, elements: SidebarElements): void {
+	if (!jobId) {
+		showStatusMessage("No job ID found", "error", elements);
+		return;
+	}
+
+	// Show loading state
+	showStatusMessage("Updating status to Applied...", "loading", elements);
+
+	// Get the Notion credentials
+	chrome.storage.sync.get(["notionToken", "databaseId"], (result) => {
+		// Validate credentials
+		if (!result.notionToken || !result.databaseId) {
+			showStatusMessage(
+				"Notion API token and database ID are required. Please go to Settings.",
+				"error",
+				elements,
+			);
+			return;
+		}
+
+		// Send message to background script to update job status
+		chrome.runtime.sendMessage(
+			{
+				action: "updateJobStatus",
+				data: {
+					notionToken: result.notionToken,
+					databaseId: result.databaseId,
+					externalId: jobId,
+					status: "Applied",
+				},
+			},
+			(response: AddJobResponse) => {
+				if (chrome.runtime.lastError) {
+					console.error("Error sending message:", chrome.runtime.lastError);
+					showStatusMessage(
+						`Error: ${chrome.runtime.lastError.message}`,
+						"error",
+						elements,
+					);
+					return;
+				}
+
+				if (response.success) {
+					showStatusMessage("Status updated to Applied!", "success", elements);
+
+					// Reset the form
+					elements.jobForm.reset();
+
+					// Return the save button to its original state
+					const appliedButton = document.querySelector(
+						".applied-button",
+					) as HTMLButtonElement;
+					if (appliedButton) {
+						appliedButton.textContent = "Save to Notion";
+						appliedButton.classList.remove("applied-button");
+						appliedButton.setAttribute("type", "submit");
+
+						// Remove the event listener by cloning the button
+						const newSaveButton = appliedButton.cloneNode(
+							true,
+						) as HTMLButtonElement;
+						appliedButton.parentNode?.replaceChild(
+							newSaveButton,
+							appliedButton,
+						);
+
+						// The form submit handler will be re-added when the form is submitted
+					}
+				} else {
+					showStatusMessage(
+						`Error updating status: ${response.error || "Unknown error"}`,
+						"error",
+						elements,
+					);
+				}
+			},
+		);
+	});
 }

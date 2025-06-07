@@ -131,12 +131,23 @@ export interface GenerateCoverLetterRequest {
     data: CoverLetterInput;
 }
 
+export interface UpdateJobStatusRequest {
+    action: "updateJobStatus";
+    data: {
+        notionToken: string;
+        databaseId: string;
+        externalId: string;
+        status: string;
+    };
+}
+
 export type ChromeMessage = 
     | AddJobRequest 
     | ExtractJobInfoMessage 
     | ToggleSidebarMessage
     | FillJobInfoMessage
-    | GenerateCoverLetterRequest;
+    | GenerateCoverLetterRequest
+    | UpdateJobStatusRequest;
 
 export interface JobInfo {
     id: string;
