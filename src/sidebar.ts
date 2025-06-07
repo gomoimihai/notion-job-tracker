@@ -55,12 +55,30 @@ function initializeElements(): SidebarElements {
 		databaseIdInput: document.getElementById("database-id") as HTMLInputElement,
 		enhanceAiCheckbox: document.getElementById(
 			"enhance-ai",
-		) as HTMLInputElement, // Initialize enhance AI checkbox
-		// AI Notes UI elements
+		) as HTMLInputElement, // Initialize enhance AI checkbox		// AI Notes UI elements
 		aiNotesContainer: document.getElementById(
 			"ai-notes-container",
 		) as HTMLElement,
 		aiNotesContent: document.getElementById("ai-notes-content") as HTMLElement,
+		// Cover Letter UI elements
+		generateCoverLetterButton: document.getElementById(
+			"generate-cover-letter",
+		) as HTMLButtonElement,
+		coverLetterContainer: document.getElementById(
+			"cover-letter-container",
+		) as HTMLElement,
+		coverLetterTextarea: document.getElementById(
+			"cover-letter",
+		) as HTMLTextAreaElement,
+		copyCoverLetterButton: document.getElementById(
+			"copy-cover-letter",
+		) as HTMLButtonElement,
+		downloadCoverLetterButton: document.getElementById(
+			"download-cover-letter",
+		) as HTMLButtonElement,
+		regenerateCoverLetterButton: document.getElementById(
+			"regenerate-cover-letter",
+		) as HTMLButtonElement,
 	};
 }
 
@@ -87,7 +105,6 @@ function setupEventListeners(elements: SidebarElements): void {
 	elements.saveSettingsButton.addEventListener("click", () => {
 		saveSettings(elements);
 	});
-
 	// Help link click handler
 	elements.helpLink.addEventListener("click", (e) => {
 		e.preventDefault();
@@ -101,6 +118,26 @@ function setupEventListeners(elements: SidebarElements): void {
 	elements.jobForm.addEventListener("submit", (event) => {
 		event.preventDefault();
 		handleJobFormSubmit(elements);
+	});
+
+	// Generate Cover Letter button click handler
+	elements.generateCoverLetterButton.addEventListener("click", () => {
+		handleGenerateCoverLetter(elements);
+	});
+
+	// Copy Cover Letter button click handler
+	elements.copyCoverLetterButton.addEventListener("click", () => {
+		copyCoverLetterToClipboard(elements);
+	});
+
+	// Download Cover Letter button click handler
+	elements.downloadCoverLetterButton.addEventListener("click", () => {
+		downloadCoverLetter(elements);
+	});
+
+	// Regenerate Cover Letter button click handler
+	elements.regenerateCoverLetterButton.addEventListener("click", () => {
+		handleGenerateCoverLetter(elements);
 	});
 }
 
@@ -624,4 +661,145 @@ function createAINotesSection(
 	sectionDiv.appendChild(titleElement);
 	sectionDiv.appendChild(contentElement);
 	container.appendChild(sectionDiv);
+}
+
+/**
+ * Handle cover letter generation
+ */
+function handleGenerateCoverLetter(elements: SidebarElements): void {
+	// Show the cover letter container if it's hidden
+	if (elements.coverLetterContainer.style.display === "none") {
+		elements.coverLetterContainer.style.display = "block";
+	}
+
+	// Validate required fields
+	const company = elements.companyInput.value.trim();
+	const position = elements.positionInput.value.trim();
+	const description = elements.descriptionTextarea.value.trim();
+
+	if (!company || !position || !description) {
+		showStatusMessage(
+			"Please fill in company, position, and job description before generating a cover letter",
+			"error",
+			elements,
+		);
+		return;
+	}
+
+	// Show loading state
+	elements.coverLetterTextarea.value = "Generating your cover letter...";
+	elements.coverLetterTextarea.disabled = true;
+	showStatusMessage("Generating cover letter...", "loading", elements);
+
+	// Gather data for cover letter generation
+	const coverLetterInput = {
+		company,
+		position,
+		jobDescription: description,
+		location: elements.locationInput.value.trim(),
+		skills: "", // You could add a field for skills or extract them from the job description
+	};
+
+	// Call background script to generate cover letter
+	chrome.runtime.sendMessage(
+		{
+			action: "generateCoverLetter",
+			data: coverLetterInput,
+		},
+		(response: { success: boolean; coverLetter?: string; error?: string }) => {
+			// Re-enable the textarea regardless of the result
+			elements.coverLetterTextarea.disabled = false;
+
+			if (chrome.runtime.lastError) {
+				console.error("Error sending message:", chrome.runtime.lastError);
+				showStatusMessage(
+					`Cover letter generation failed: ${chrome.runtime.lastError.message}`,
+					"error",
+					elements,
+				);
+				elements.coverLetterTextarea.value =
+					"Error generating cover letter. Please try again.";
+				return;
+			}
+
+			if (response && response.success && response.coverLetter) {
+				showStatusMessage(
+					"Cover letter generated successfully",
+					"success",
+					elements,
+				);
+				elements.coverLetterTextarea.value = response.coverLetter;
+			} else {
+				showStatusMessage(
+					`Cover letter generation failed: ${response?.error || "Unknown error"}`,
+					"error",
+					elements,
+				);
+				elements.coverLetterTextarea.value =
+					"Error generating cover letter. Please try again.";
+			}
+		},
+	);
+}
+
+/**
+ * Copy cover letter to clipboard
+ */
+function copyCoverLetterToClipboard(elements: SidebarElements): void {
+	const coverLetterText = elements.coverLetterTextarea.value.trim();
+
+	if (!coverLetterText) {
+		showStatusMessage("No cover letter to copy", "warning", elements);
+		return;
+	}
+
+	// Copy to clipboard
+	navigator.clipboard
+		.writeText(coverLetterText)
+		.then(() => {
+			showStatusMessage(
+				"Cover letter copied to clipboard!",
+				"success",
+				elements,
+			);
+		})
+		.catch((err) => {
+			console.error("Failed to copy: ", err);
+			showStatusMessage("Failed to copy to clipboard", "error", elements);
+		});
+}
+
+/**
+ * Download cover letter as text file
+ */
+function downloadCoverLetter(elements: SidebarElements): void {
+	const coverLetterText = elements.coverLetterTextarea.value.trim();
+
+	if (!coverLetterText) {
+		showStatusMessage("No cover letter to download", "warning", elements);
+		return;
+	}
+
+	const company = elements.companyInput.value.trim() || "company";
+	const position = elements.positionInput.value.trim() || "position";
+	const filename = `Cover_Letter_${company}_${position}.txt`
+		.replace(/\s+/g, "_")
+		.replace(/[^a-zA-Z0-9_\.]/g, "");
+
+	const blob = new Blob([coverLetterText], { type: "text/plain" });
+	const url = URL.createObjectURL(blob);
+
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+
+	// Cleanup
+	setTimeout(() => {
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}, 100);
+
+	showStatusMessage("Cover letter downloaded", "success", elements);
 }

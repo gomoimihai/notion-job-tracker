@@ -83,15 +83,32 @@
           </div>          <div class="form-group">
             <label for="notes">Notes</label>
             <textarea id="notes"></textarea>
-          </div>
-
-          <div class="form-group">
+          </div>          <div class="form-group">
             <div id="ai-notes-container" class="ai-notes-container hidden">
               <div class="ai-notes-header">
                 <span class="ai-notes-title">AI Analysis</span>
                 <span class="ai-notes-badge">AI</span>
               </div>
               <div id="ai-notes-content" class="ai-notes-content"></div>
+            </div>
+          </div>
+          
+          <div class="button-group">
+            <button type="button" id="generate-cover-letter">Generate Cover Letter</button>
+          </div>
+
+          <div class="form-group" id="cover-letter-container" style="display: none;">
+            <div class="cover-letter-header">
+              <div class="cover-letter-title">Cover Letter</div>
+              <div class="cover-letter-actions">
+                <button type="button" id="copy-cover-letter" class="icon-button" title="Copy to clipboard">📋</button>
+                <button type="button" id="download-cover-letter" class="icon-button" title="Download as .txt">💾</button>
+              </div>
+            </div>
+            <textarea id="cover-letter" class="larger-textarea" placeholder="Your AI generated cover letter will appear here..."></textarea>
+            <div class="cover-letter-footer">
+              <span class="cover-letter-info">This cover letter is not saved to Notion</span>
+              <button type="button" id="regenerate-cover-letter">Regenerate</button>
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 // background.ts
-import { analyzeJobDescription } from "./ai"; // Import the AI function
+import { analyzeJobDescription, generateCoverLetter } from "./ai"; // Import the AI functions
+import { STORAGE } from "./constants";
 import {
 	AddJobRequest,
 	AddJobResponse,
@@ -7,6 +8,8 @@ import {
 	AddJobToNotionParams,
 	JobAnalysisInput,
 	JobAnalysisOutput,
+	CoverLetterInput,
+	CoverLetterOutput,
 } from "./types";
 
 // Handle browser action click (toolbar button)
@@ -27,130 +30,161 @@ interface SchemaCache {
 const schemaCache: SchemaCache = {};
 const SCHEMA_CACHE_LIFETIME = 60 * 60 * 1000; // 1 hour in milliseconds
 
-chrome.runtime.onMessage.addListener(
-	(request: AddJobRequest, sender, sendResponse) => {
-		const jobUrl = request.data.jobData.jobUrl;
-		const enhanceAi = request.data.enhanceAi; // Get enhanceAi flag
+chrome.runtime.onMessage.addListener((request: any, sender, sendResponse) => {
+	// Handle different request types
+	if (request.action === "generateCoverLetter") {
+		console.log("Generating cover letter...", request.data);
 
-		if (request.action === "enhanceWithAi") {
-			let jobDataForNotion = { ...request.data.jobData };
-			if (enhanceAi && jobDataForNotion.description) {
-				try {
-					console.log("Enhancing notes with AI...");
-
-					analyzeJobDescription({
-						description: jobDataForNotion.description,
-					} as JobAnalysisInput)
-						.then((result) => {
-							// Format the response to match AddJobResponse interface
-							sendResponse({
-								success: true,
-								data: result,
-							});
-						})
-						.catch((error) => {
-							console.error("AI analysis error:", error);
-							sendResponse({
-								success: false,
-								error: error.message || "Error enhancing with AI",
-							});
-						});
-				} catch (aiError) {
-					console.error("Error during AI analysis:", aiError);
-					sendResponse({
-						success: false,
-						error:
-							aiError instanceof Error
-								? aiError.message
-								: "Error during AI analysis",
-					});
-				}
-			} else {
-				sendResponse({
-					success: false,
-					error: "AI enhancement is disabled or no description provided",
-				});
-			}
+		// Validate input data
+		if (
+			!request.data.company ||
+			!request.data.position ||
+			!request.data.jobDescription
+		) {
+			sendResponse({
+				success: false,
+				error: "Missing required fields for cover letter generation",
+			});
 			return true;
 		}
-		if (request.action === "addJobToNotion") {
-			// Check if this job was recently submitted
-			if (wasRecentlySubmitted(jobUrl) && !request.data.forceSubmit) {
-				console.log(
-					"Job URL was recently submitted, preventing potential duplicate:",
-					jobUrl,
-				);
 
-				// Ask for confirmation before proceeding
-				if (!request.data.forceSubmit) {
-					sendResponse({
-						success: false,
-						error:
-							"This job URL was recently submitted. To submit anyway, please try again.",
-						requireConfirmation: true,
-						jobUrl: jobUrl,
-					});
-					return true;
-				}
-
-				console.log("Forcing submission of a potential duplicate job");
-			}
-
-			// Check if there's already a submission in progress
-			if (isSubmitting) {
-				console.log("Job submission already in progress, preventing duplicate");
+		// Call the AI function to generate a cover letter
+		generateCoverLetter(request.data)
+			.then((result) => {
+				console.log("Cover letter generated successfully");
+				sendResponse({
+					success: true,
+					coverLetter: result.coverLetter,
+				});
+			})
+			.catch((error) => {
+				console.error("Cover letter generation error:", error);
 				sendResponse({
 					success: false,
-					error: "A job submission is already in progress. Please wait.",
+					error: error.message || "Error generating cover letter",
+				});
+			});
+
+		// Return true to indicate we'll respond asynchronously
+		return true;
+	} else if (request.action === "enhanceWithAi") {
+		let jobDataForNotion = { ...request.data.jobData };
+		const enhanceAi = request.data.enhanceAi;
+		if (enhanceAi && jobDataForNotion.description) {
+			try {
+				console.log("Enhancing notes with AI...");
+
+				analyzeJobDescription({
+					description: jobDataForNotion.description,
+				} as JobAnalysisInput)
+					.then((result) => {
+						// Format the response to match AddJobResponse interface
+						sendResponse({
+							success: true,
+							data: result,
+						});
+					})
+					.catch((error) => {
+						console.error("AI analysis error:", error);
+						sendResponse({
+							success: false,
+							error: error.message || "Error enhancing with AI",
+						});
+					});
+			} catch (aiError) {
+				console.error("Error during AI analysis:", aiError);
+				sendResponse({
+					success: false,
+					error:
+						aiError instanceof Error
+							? aiError.message
+							: "Error during AI analysis",
+				});
+			}
+		} else {
+			sendResponse({
+				success: false,
+				error: "AI enhancement is disabled or no description provided",
+			});
+		}
+		return true;
+	} else if (request.action === "addJobToNotion") {
+		const addJobRequest = request as AddJobRequest;
+		const jobUrl = addJobRequest.data.jobData.jobUrl;
+		// Check if this job was recently submitted
+		if (wasRecentlySubmitted(jobUrl) && !request.data.forceSubmit) {
+			console.log(
+				"Job URL was recently submitted, preventing potential duplicate:",
+				jobUrl,
+			);
+
+			// Ask for confirmation before proceeding
+			if (!request.data.forceSubmit) {
+				sendResponse({
+					success: false,
+					error:
+						"This job URL was recently submitted. To submit anyway, please try again.",
+					requireConfirmation: true,
+					jobUrl: jobUrl,
 				});
 				return true;
 			}
 
-			isSubmitting = true;
-			console.log("Starting job submission to Notion");
+			console.log("Forcing submission of a potential duplicate job");
+		}
 
-			// Potentially modify jobData.notes with AI analysis before sending to Notion
-			const processAndAddJob = async () => {
-				let jobDataForNotion = { ...request.data.jobData };
-
-				return addJobToNotion({
-					notionToken: request.data.notionToken,
-					databaseId: request.data.databaseId,
-					jobData: jobDataForNotion, // Use potentially modified jobData
-				});
-			};
-
-			processAndAddJob()
-				.then((result) => {
-					isSubmitting = false;
-
-					// Add to recently submitted if successful
-					if (result.success && jobUrl) {
-						addToRecentlySubmitted(jobUrl);
-					}
-
-					console.log("Job submission completed successfully");
-					sendResponse(result);
-				})
-				.catch((error) => {
-					isSubmitting = false;
-					console.log("Job submission failed:", error);
-					sendResponse({
-						success: false,
-						error: error.message || "Error adding job to Notion",
-					});
-				});
-
-			// Return true to indicate we'll respond asynchronously
+		// Check if there's already a submission in progress
+		if (isSubmitting) {
+			console.log("Job submission already in progress, preventing duplicate");
+			sendResponse({
+				success: false,
+				error: "A job submission is already in progress. Please wait.",
+			});
 			return true;
 		}
-	},
-);
+
+		isSubmitting = true;
+		console.log("Starting job submission to Notion");
+
+		// Potentially modify jobData.notes with AI analysis before sending to Notion
+		const processAndAddJob = async () => {
+			let jobDataForNotion = { ...request.data.jobData };
+
+			return addJobToNotion({
+				notionToken: request.data.notionToken,
+				databaseId: request.data.databaseId,
+				jobData: jobDataForNotion, // Use potentially modified jobData
+			});
+		};
+
+		processAndAddJob()
+			.then((result) => {
+				isSubmitting = false;
+
+				// Add to recently submitted if successful
+				if (result.success && jobUrl) {
+					addToRecentlySubmitted(jobUrl);
+				}
+
+				console.log("Job submission completed successfully");
+				sendResponse(result);
+			})
+			.catch((error) => {
+				isSubmitting = false;
+				console.log("Job submission failed:", error);
+				sendResponse({
+					success: false,
+					error: error.message || "Error adding job to Notion",
+				});
+			});
+
+		// Return true to indicate we'll respond asynchronously
+		return true;
+	}
+});
 
 // Prevent duplicate submissions
 let isSubmitting: boolean = false;
-
-import { STORAGE } from "./constants";
 
 // Store recently submitted job URLs to prevent duplicates
 const recentlySubmittedJobs: Set<string> = new Set();

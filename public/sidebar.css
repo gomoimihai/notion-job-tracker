@@ -254,6 +254,103 @@ button:hover {
   color: #333;
   white-space: pre-line;
 }
+
+/* Cover Letter Button and Container Styling */
+.button-group {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+.button-group {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+#generate-cover-letter {
+  background-color: #28a745;
+  margin-bottom: 5px;
+  width: 100%;
+}
+
+#generate-cover-letter:hover {
+  background-color: #218838;
+}
+
+#cover-letter-container {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cover-letter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f5f5f7;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cover-letter-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.cover-letter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 5px;
+  margin: 0;
+  width: auto;
+}
+
+.icon-button:hover {
+  background-color: #e0e0e0;
+  border-radius: 3px;
+}
+
+#cover-letter {
+  min-height: 300px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 12px;
+  line-height: 1.6;
+}
+
+.cover-letter-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #f5f5f7;
+  border-top: 1px solid #e0e0e0;
+}
+
+.cover-letter-info {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+#regenerate-cover-letter {
+  background-color: #6c757d;
+  font-size: 12px;
+  padding: 5px 10px;
+  width: auto;
+  margin: 0;
+}
+
+#regenerate-cover-letter:hover {
+  background-color: #5a6268;
 }
 
 #status-message.warning {

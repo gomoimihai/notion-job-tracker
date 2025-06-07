@@ -35,10 +35,16 @@ export interface SidebarElements {
     notesTextarea: HTMLTextAreaElement;
     notionTokenInput: HTMLInputElement;
     databaseIdInput: HTMLInputElement;
-    enhanceAiCheckbox: HTMLInputElement;
-    // AI Notes UI elements
+    enhanceAiCheckbox: HTMLInputElement;    // AI Notes UI elements
     aiNotesContainer: HTMLElement;
     aiNotesContent: HTMLElement;
+    // Cover Letter UI elements
+    generateCoverLetterButton: HTMLButtonElement;
+    coverLetterContainer: HTMLElement;
+    coverLetterTextarea: HTMLTextAreaElement;
+    copyCoverLetterButton: HTMLButtonElement;
+    downloadCoverLetterButton: HTMLButtonElement;
+    regenerateCoverLetterButton: HTMLButtonElement;
 }
 export interface LinkedInSelectorsMap {
     title: string[];
@@ -120,11 +126,17 @@ export interface FillJobInfoMessage {
     data: ExtractJobResponse;
 }
 
+export interface GenerateCoverLetterRequest {
+    action: "generateCoverLetter";
+    data: CoverLetterInput;
+}
+
 export type ChromeMessage = 
     | AddJobRequest 
     | ExtractJobInfoMessage 
     | ToggleSidebarMessage
-    | FillJobInfoMessage;
+    | FillJobInfoMessage
+    | GenerateCoverLetterRequest;
 
 export interface JobInfo {
     id: string;
@@ -167,4 +179,16 @@ export interface JobAnalysisOutput {
     title: string;
     salary: string;
     keyPoints?: string[];
+}
+
+export interface CoverLetterInput {
+    company: string;
+    position: string;
+    jobDescription: string;
+    location?: string;
+    skills?: string;
+}
+
+export interface CoverLetterOutput {
+    coverLetter: string;
 }
