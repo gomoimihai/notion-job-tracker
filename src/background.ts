@@ -175,6 +175,119 @@ function addToRecentlySubmitted(jobUrl: string): void {
 	}
 }
 
+// Function to check if a job with the given External ID already exists in the database
+async function checkJobExistsInNotion(
+	notionToken: string,
+	databaseId: string,
+	externalId: string,
+): Promise<boolean> {
+	try {
+		console.log(
+			`Checking if job with External ID ${externalId} already exists`,
+		);
+
+		// First, fetch the database schema to get the correct property name for ExternalID
+		let dbSchema: NotionDbSchema;
+		const cacheKey = `${databaseId}`;
+		const currentTime = Date.now();
+
+		// Try to use cached schema if available
+		if (
+			schemaCache[cacheKey] &&
+			currentTime - schemaCache[cacheKey].timestamp < SCHEMA_CACHE_LIFETIME
+		) {
+			dbSchema = schemaCache[cacheKey].schema;
+		} else {
+			// Fetch the database structure
+			const dbResponse = await fetch(
+				`https://api.notion.com/v1/databases/${databaseId}`,
+				{
+					method: "GET",
+					headers: {
+						Authorization: `Bearer ${notionToken}`,
+						"Content-Type": "application/json",
+						"Notion-Version": "2022-06-28",
+					},
+				},
+			);
+
+			if (!dbResponse.ok) {
+				const error = await dbResponse.json();
+				console.error("Error fetching database schema:", error);
+				return false;
+			}
+
+			dbSchema = (await dbResponse.json()) as NotionDbSchema;
+			schemaCache[cacheKey] = {
+				schema: dbSchema,
+				timestamp: currentTime,
+			};
+		}
+
+		// Helper function to find the correct property name in the database
+		function findPropertyName(searchName: string): string {
+			// Try direct match first
+			if (dbSchema.properties[searchName]) {
+				return searchName;
+			}
+
+			// Try case-insensitive match
+			const lowerSearchName = searchName.toLowerCase();
+			for (const key in dbSchema.properties) {
+				if (key.toLowerCase() === lowerSearchName) {
+					return key; // Return the actual property name with correct case
+				}
+			}
+
+			// Return original if no match found
+			return searchName;
+		}
+
+		// Get the correct property name for ExternalID
+		const externalIdPropName = findPropertyName("ExternalID");
+
+		// Use Notion's query API to search for the external ID
+		const response = await fetch(
+			`https://api.notion.com/v1/databases/${databaseId}/query`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${notionToken}`,
+					"Content-Type": "application/json",
+					"Notion-Version": "2022-06-28",
+				},
+				body: JSON.stringify({
+					filter: {
+						property: externalIdPropName,
+						rich_text: {
+							equals: externalId,
+						},
+					},
+				}),
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json();
+			console.error("Error checking for existing job:", error);
+			// If there's an error, we'll conservatively return false and continue with the submission
+			return false;
+		}
+
+		const result = await response.json();
+		console.log(
+			`Found ${result.results.length} matching jobs with ExternalID: ${externalId}`,
+		);
+
+		// If we found any matching records, a job with this ID already exists
+		return result.results.length > 0;
+	} catch (error) {
+		console.error("Error checking for existing job:", error);
+		// If there's an exception, we'll conservatively return false
+		return false;
+	}
+}
+
 // Function to add a job to the Notion database
 async function addJobToNotion(
 	data: AddJobToNotionParams,
@@ -185,6 +298,23 @@ async function addJobToNotion(
 	const formattedDate = new Date().toISOString().split("T")[0];
 
 	try {
+		// Check if a job with this External ID already exists
+		if (jobData.id) {
+			const jobExists = await checkJobExistsInNotion(
+				notionToken,
+				databaseId,
+				jobData.id,
+			);
+			if (jobExists) {
+				return {
+					success: false,
+					error: `A job with External ID "${jobData.id}" already exists in the database.`,
+					requireConfirmation: false,
+					jobUrl: jobData.jobUrl,
+				};
+			}
+		}
+
 		// Check if we have a valid cached schema
 		let dbSchema: NotionDbSchema;
 		const cacheKey = `${databaseId}`;

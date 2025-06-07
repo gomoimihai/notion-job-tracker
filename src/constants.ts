@@ -6,7 +6,7 @@ import { LinkedInSelectorsMap } from "./types";
 
 export const UI = {
 	SIDEBAR: {
-		WIDTH: "380px",
+		WIDTH: "580px",
 		TOGGLE_BUTTON_WIDTH: "30px",
 		TOGGLE_BUTTON_HEIGHT: "60px",
 		STORAGE_KEY: "notion-job-tracker-sidebar-open",

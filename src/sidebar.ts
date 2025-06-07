@@ -204,7 +204,6 @@ function fillFormWithJobInfo(
 						);
 						return;
 					}
-					console.log("AI enhancement response:", response);
 					if (response && response.success) {
 						showStatusMessage("AI enhancement complete", "success", elements);
 						const aiNotes = response.data;
@@ -224,6 +223,7 @@ function fillFormWithJobInfo(
 
 						// Store raw AI data in notes field (for submission to Notion)
 						elements.notesTextarea.value = JSON.stringify(aiNotes, null, 2);
+						elements.salaryInput.value = aiNotes.salary || "";
 
 						// Display AI notes in a nice format
 						displayAINotes(aiNotes, elements);

@@ -18,7 +18,7 @@
   top: 0;
   right: 0;
   height: 100%;
-  width: 380px;
+  width: 580px;
   background-color: #fff;
   box-shadow: -5px 0 10px rgba(0, 0, 0, 0.1);
   z-index: 10000;
@@ -27,7 +27,7 @@
 }
 
 .sidebar-container.collapsed {
-  transform: translateX(380px);
+  transform: translateX(580px);
 }
 
 .sidebar-toggle-btn {
