@@ -19,6 +19,7 @@ export interface JobInfo {
  * Represents the complete job data used in the Notion database
  */
 export interface JobData {
+    id: string;
     company: string;
     position: string;
     location: string;

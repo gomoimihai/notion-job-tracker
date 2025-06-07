@@ -180,7 +180,7 @@ async function addJobToNotion(
 	data: AddJobToNotionParams,
 ): Promise<AddJobResponse> {
 	const { notionToken, databaseId, jobData } = data;
-
+	console.log(jobData);
 	// Format date for Notion (YYYY-MM-DD)
 	const formattedDate = new Date().toISOString().split("T")[0];
 
@@ -254,6 +254,20 @@ async function addJobToNotion(
 
 		// Build properties object with correct property names from the database
 		const properties: Record<string, any> = {};
+
+		// Company (Title property)
+		const idPropName = findPropertyName("ExternalID");
+		if (dbSchema.properties[idPropName]?.type === "rich_text") {
+			properties[idPropName] = {
+				rich_text: [
+					{
+						text: {
+							content: jobData.id,
+						},
+					},
+				],
+			};
+		}
 
 		// Company (Title property)
 		const companyPropName = findPropertyName("Company");

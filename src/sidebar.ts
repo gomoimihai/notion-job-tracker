@@ -38,6 +38,7 @@ function initializeElements(): SidebarElements {
 		sidebarContainer: document.querySelector(
 			".sidebar-container",
 		) as HTMLElement,
+		jobId: document.getElementById("jobId") as HTMLInputElement,
 		companyInput: document.getElementById("company") as HTMLInputElement,
 		positionInput: document.getElementById("position") as HTMLInputElement,
 		locationInput: document.getElementById("location") as HTMLInputElement,
@@ -146,6 +147,10 @@ function fillFormWithJobInfo(
 	if (!jobInfo || jobInfo.error) return;
 	chrome.storage.sync.get(["enhanceAi"], (result) => {
 		// First, immediately fill in basic job info
+		if (jobInfo.id) {
+			elements.jobId.value = jobInfo.id;
+		}
+
 		if (jobInfo.company) {
 			elements.companyInput.value = jobInfo.company;
 		}
@@ -372,6 +377,7 @@ function submitJobToNotion(
 			}
 
 			// Get form values
+			const id = elements.jobId.value.trim();
 			const company = elements.companyInput.value.trim();
 			const position = elements.positionInput.value.trim();
 			const location = elements.locationInput.value.trim();
@@ -382,6 +388,7 @@ function submitJobToNotion(
 			let notes = elements.notesTextarea.value.trim(); // Changed to let
 
 			const jobData: JobData = {
+				id,
 				company,
 				position,
 				location,

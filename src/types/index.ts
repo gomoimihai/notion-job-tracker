@@ -15,6 +15,7 @@ export interface FormStateParams {
     enabled: boolean;
 }
 export interface SidebarElements {
+    jobId: HTMLInputElement;
     jobForm: HTMLFormElement;
     setupContainer: HTMLElement;
     jobFormContainer: HTMLElement;
@@ -126,6 +127,7 @@ export type ChromeMessage =
     | FillJobInfoMessage;
 
 export interface JobInfo {
+    id: string;
     company: string;
     position: string;
     location: string;
@@ -136,6 +138,7 @@ export interface JobInfo {
 }
 
 export interface JobData {
+    id: string;
     company: string;
     position: string;
     location: string;
@@ -146,6 +149,7 @@ export interface JobData {
     notes: string;
 }
 export interface ExtractJobResponse {
+    id: string;
     company?: string;
     position?: string;
     location?: string;

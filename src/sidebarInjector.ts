@@ -379,6 +379,7 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		salary: "",
 		description: "",
 		url: "",
+		id: "",
 	};
 
 	// Extract position
@@ -409,6 +410,7 @@ async function extractFromLinkedIn(): Promise<JobInfo> {
 		const match = url.match(/[?&]currentJobId=(\d+)/);
 		if (match && match[1]) {
 			jobInfo.url = `https://www.linkedin.com/jobs/view/${match[1]}`; // Set to currentJobId only
+			jobInfo.id = match[1] || ""; // Set ID if available
 		} else {
 			jobInfo.url = url; // Fallback to full URL if not found
 		}
@@ -429,6 +431,7 @@ async function extractJobInfo(): Promise<JobInfo> {
 		salary: "",
 		description: "",
 		url: url,
+		id: "",
 	};
 
 	// Only extract from LinkedIn job pages for now
